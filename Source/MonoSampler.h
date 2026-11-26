@@ -42,6 +42,7 @@ public:
     int getRootMidiNote() const noexcept { return userRootMidi_.load(std::memory_order_relaxed); }
 
     void setADSR(float attackMs, float decayMs, float sustainLevel, float releaseMs);
+    void setGlide(float ms) noexcept { glideMs_ = std::clamp(ms, 0.0f, 1000.0f); }
 
     void noteOn(int midiNote, float velocity);
     void noteOff(int midiNote);
@@ -76,6 +77,10 @@ private:
         float stealStep = 0.0f;
         bool isFadingOutForSteal = false;
 
+        // Portamento: pitchRatio is multiplied by glideMul for glideSamplesLeft samples
+        double glideMul = 1.0;
+        int glideSamplesLeft = 0;
+
         Voice() = default;
         Voice(const Voice&) = delete;
 
@@ -93,12 +98,15 @@ private:
                 stealGain = other.stealGain;
                 stealStep = other.stealStep;
                 isFadingOutForSteal = other.isFadingOutForSteal;
+                glideMul = other.glideMul;
+                glideSamplesLeft = other.glideSamplesLeft;
             }
             return *this;
         }
     };
 
     double hostSampleRate_ = 44100.0;
+    float glideMs_ = 0.0f;
     juce::ADSR::Parameters adsrParams_ { 0.008f, 0.450f, 0.85f, 0.040f };
     std::atomic<int> userRootMidi_ { 29 };
 

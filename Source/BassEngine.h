@@ -13,6 +13,7 @@ enum class EraPreset : int {
     TechstepNeuro_98_99,
     MinimalRollers_00_01,
     LiquidJumpUp_02_04,
+    Liminal_15_24,          // modern minimal: held sub, root <-> b2, slide-in grace notes
     Count
 };
 
@@ -29,6 +30,8 @@ enum class BassArchetype : int {
     JumpUp,
     StabbingBassline,
     PedalNotePulse,
+    LiminalSubRoller,       // long held sub notes, b2 bar movement, grace slides, bar-4 fill
+    LiminalPulse,           // 3-step (2 on / 1 off) root pulse, lower-neighbour fills
     Count
 };
 
@@ -162,6 +165,12 @@ private:
                                 const GenerationParams& p);
 
     void applyCallResponse(std::vector<BarPattern>& bars, const GenerationParams& p);
+
+    // Whole-phrase generator for the Liminal archetypes (they think in phrases, not bars)
+    std::vector<BarPattern> generateLiminalPhrase(const GenerationParams& p, Mulberry32& rng, int numBars);
+    static bool isLiminal(BassArchetype a) noexcept {
+        return a == BassArchetype::LiminalSubRoller || a == BassArchetype::LiminalPulse;
+    }
 };
 
 } // namespace bleek

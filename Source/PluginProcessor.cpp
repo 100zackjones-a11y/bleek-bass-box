@@ -16,7 +16,7 @@ BleekBassBoxProcessor::BleekBassBoxProcessor()
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
         "attack", "decay", "sustain", "release", "liveMidiOut",
         "callResponse", "responseAmount", "responseDir",
-        "attackB", "decayB", "sustainB", "releaseB"
+        "attackB", "decayB", "sustainB", "releaseB", "glide", "glideB"
     };
     for (const auto* id : paramIds)
         apvts.addParameterListener(id, this);
@@ -33,7 +33,7 @@ BleekBassBoxProcessor::~BleekBassBoxProcessor() {
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
         "attack", "decay", "sustain", "release", "liveMidiOut",
         "callResponse", "responseAmount", "responseDir",
-        "attackB", "decayB", "sustainB", "releaseB"
+        "attackB", "decayB", "sustainB", "releaseB", "glide", "glideB"
     };
     for (const auto* id : paramIds)
         apvts.removeParameterListener(id, this);
@@ -73,6 +73,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleekBassBoxProcessor::creat
         juce::ParameterID("releaseB", 1), "Release B",
         juce::NormalisableRange<float>(5.0f, 2000.0f, 1.0f, 0.4f), 40.0f));
 
+    // Glide (portamento) per slot, in ms. 0 = off.
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("glide", 1), "Glide",
+        juce::NormalisableRange<float>(0.0f, 300.0f, 0.1f, 0.5f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("glideB", 1), "Glide B",
+        juce::NormalisableRange<float>(0.0f, 300.0f, 0.1f, 0.5f), 0.0f));
+
     // Compositional Selectors
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID("era", 1), "Historical Era",
@@ -81,7 +89,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleekBassBoxProcessor::creat
             "1996-1997 Dark Jungle / Early Techstep",
             "1998-1999 Techstep / Early Neurofunk",
             "2000-2001 Minimal Dark Rollers",
-            "2002-2004 Liquid Funk & Jump-Up"
+            "2002-2004 Liquid Funk & Jump-Up",
+            "2015-2024 Liminal / Modern Minimal"
         }, 0));
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -90,7 +99,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleekBassBoxProcessor::creat
             "Roots Jungle Sub-Bass", "808-Style Sub", "Dub-Influenced Bass",
             "Reese Bassline", "Techstep", "Neurofunk", "Rolling Bassline",
             "Minimal Dark Roller", "Liquid Funk", "Jump-Up",
-            "Stabbing Bassline", "Pedal-Note Pulse"
+            "Stabbing Bassline", "Pedal-Note Pulse",
+            "Liminal Sub Roller", "Liminal Pulse"
         }, 0));
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -164,7 +174,8 @@ void BleekBassBoxProcessor::parameterChanged(const juce::String& parameterID, fl
     if (parameterID == "attack" || parameterID == "decay" ||
         parameterID == "sustain" || parameterID == "release" ||
         parameterID == "attackB" || parameterID == "decayB" ||
-        parameterID == "sustainB" || parameterID == "releaseB")
+        parameterID == "sustainB" || parameterID == "releaseB" ||
+        parameterID == "glide" || parameterID == "glideB")
     {
         applyAdsrToSamplers();
         return;
@@ -186,6 +197,14 @@ void BleekBassBoxProcessor::applyEraPreset(EraPreset era) {
         p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(cfg.defaultDrum)));
     if (auto* p = apvts.getParameter("archetype"))
         p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(cfg.defaultArchetype)));
+
+    // The Liminal sound relies on grace notes sliding into held subs: switch glide on
+    if (era == EraPreset::Liminal_15_24) {
+        for (const char* id : { "glide", "glideB" })
+            if (auto* p = apvts.getParameter(id))
+                if (p->convertFrom0to1(p->getValue()) < 1.0f)
+                    p->setValueNotifyingHost(p->convertTo0to1(45.0f));
+    }
 
     needsRegeneration_.store(true, std::memory_order_release);
 }
@@ -246,6 +265,8 @@ void BleekBassBoxProcessor::applyAdsrToSamplers() {
                      apvts.getRawParameterValue("decayB")->load(),
                      apvts.getRawParameterValue("sustainB")->load(),
                      apvts.getRawParameterValue("releaseB")->load());
+    sampler.setGlide(apvts.getRawParameterValue("glide")->load());
+    samplerB.setGlide(apvts.getRawParameterValue("glideB")->load());
 }
 
 bool BleekBassBoxProcessor::loadSampleFile(const juce::File& file, int slot, bool setKeyFromSample) {

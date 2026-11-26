@@ -113,8 +113,8 @@ private:
     juce::TextButton loadSampleBtn_ { "LOAD SAMPLE" };
     juce::TextButton sineResetBtn_ { "PURE SUB" };
     juce::ComboBox rootNoteBox_;
-    juce::Slider attackKnob_, decayKnob_, sustainKnob_, releaseKnob_;
-    juce::Label attackLbl_, decayLbl_, sustainLbl_, releaseLbl_;
+    juce::Slider attackKnob_, decayKnob_, sustainKnob_, releaseKnob_, glideKnob_;
+    juce::Label attackLbl_, decayLbl_, sustainLbl_, releaseLbl_, glideLbl_;
 
     // LCD Piano Roll & Bar Tabs
     LcdPianoRoll pianoRoll_;
@@ -146,7 +146,7 @@ private:
     using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAtt = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    std::unique_ptr<SliderAtt> attAttack_, attDecay_, attSustain_, attRelease_;
+    std::unique_ptr<SliderAtt> attAttack_, attDecay_, attSustain_, attRelease_, attGlide_;
     std::unique_ptr<SliderAtt> attDensity_, attSync_, attVar_, attLen_;
     std::unique_ptr<SliderAtt> attChrom_, attOct_, attDrumAware_, attSwing_;
     std::unique_ptr<ComboAtt>  attEra_, attArch_, attDrum_, attRoot_, attPhrase_;

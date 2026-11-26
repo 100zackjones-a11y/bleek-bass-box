@@ -403,6 +403,21 @@ void MonoSampler::noteOn(int midiNote, float velocity) {
     if (!asset || asset->buffer.getNumSamples() < 4)
         return;
 
+    // GLIDE: if the previous note is still sounding, slide its pitch to the new note
+    // and re-attack the envelope from where it is, without restarting the sample.
+    if (glideMs_ > 0.5f && mainVoice_.active && !mainVoice_.isFadingOutForSteal && mainVoice_.pitchRatio > 0.0) {
+        const double targetRatio = std::pow(2.0, static_cast<double>(midiNote - asset->detectedRootMidi) / 12.0)
+                                 * (asset->sampleRate / hostSampleRate_);
+        const int n = std::max(1, static_cast<int>(hostSampleRate_ * glideMs_ * 0.001));
+        mainVoice_.glideMul = std::pow(targetRatio / mainVoice_.pitchRatio, 1.0 / static_cast<double>(n));
+        mainVoice_.glideSamplesLeft = n;
+        mainVoice_.midiNote = midiNote;
+        mainVoice_.velocity = std::clamp(velocity, 0.0f, 1.0f);
+        mainVoice_.adsr.setParameters(adsrParams_);
+        mainVoice_.adsr.noteOn();
+        return;
+    }
+
     // Monophonic Voice Stealing: transfer active voice to stealVoice_ for 6 ms linear de-click fade
     if (mainVoice_.active) {
         stealVoice_ = mainVoice_;
@@ -427,6 +442,8 @@ void MonoSampler::noteOn(int midiNote, float velocity) {
     mainVoice_.stealGain = 1.0f;
     mainVoice_.stealStep = 0.0f;
     mainVoice_.isFadingOutForSteal = false;
+    mainVoice_.glideMul = 1.0;
+    mainVoice_.glideSamplesLeft = 0;
     mainVoice_.interpL.reset();
     mainVoice_.interpR.reset();
     mainVoice_.adsr.setSampleRate(hostSampleRate_);
@@ -529,6 +546,10 @@ void MonoSampler::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int st
             if (outputBuffer.getNumChannels() > 1)
                 outputBuffer.addSample(1, startSample + i, outR);
 
+            if (v.glideSamplesLeft > 0) {
+                v.pitchRatio *= v.glideMul;
+                --v.glideSamplesLeft;
+            }
             v.sourcePosition += v.pitchRatio;
         }
     };

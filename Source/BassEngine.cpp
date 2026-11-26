@@ -22,6 +22,8 @@ EraConfig BassEngine::getEraConfig(EraPreset era) {
             return { "2000–2001 Minimal Dark Rollers", 173.0, 0.500f, DrumTemplate::TwoStepDnB, BassArchetype::MinimalDarkRoller };
         case EraPreset::LiquidJumpUp_02_04:
             return { "2002–2004 Liquid Funk & Jump-Up", 174.0, 0.500f, DrumTemplate::Rolling16th, BassArchetype::LiquidFunk };
+        case EraPreset::Liminal_15_24:
+            return { "2015–2024 Liminal / Modern Minimal", 172.0, 0.500f, DrumTemplate::TwoStepDnB, BassArchetype::LiminalSubRoller };
         default:
             return { "1994–1995 Foundation / Ragga Jungle", 164.0, 0.530f, DrumTemplate::AmenBreak, BassArchetype::RootsJungleSub };
     }
@@ -41,6 +43,8 @@ const char* BassEngine::getArchetypeName(BassArchetype arch) {
         case BassArchetype::JumpUp:            return "Jump-Up";
         case BassArchetype::StabbingBassline:  return "Stabbing Bassline";
         case BassArchetype::PedalNotePulse:    return "Pedal-Note Pulse";
+        case BassArchetype::LiminalSubRoller:  return "Liminal Sub Roller";
+        case BassArchetype::LiminalPulse:      return "Liminal Pulse";
         default:                               return "Roots Jungle Sub-Bass";
     }
 }
@@ -84,6 +88,12 @@ void BassEngine::generate(const GenerationParams& p) {
 
     Mulberry32 rng(p.seed);
 
+    // Liminal archetypes are written a whole phrase at a time
+    const bool liminal = isLiminal(p.archetype);
+    std::vector<BarPattern> liminalBars;
+    if (liminal)
+        liminalBars = generateLiminalPhrase(p, rng, numBars);
+
     // If Phrase is locked and we already have bars, preserve phrase topology
     std::vector<BarPattern> workingBars = cachedBars_;
 
@@ -91,9 +101,11 @@ void BassEngine::generate(const GenerationParams& p) {
         const bool isFinalBar = (numBars > 1 && bar == numBars - 1);
         const BarPattern* motifA = (bar > 0) ? &workingBars[0] : nullptr;
 
-        BarPattern generated = generateBarRhythmAndPitch(p, bar, rng, motifA, isFinalBar);
+        BarPattern generated = liminal ? liminalBars[static_cast<size_t>(bar)]
+                                       : generateBarRhythmAndPitch(p, bar, rng, motifA, isFinalBar);
 
         if (p.lockRhythm && bar < static_cast<int>(cachedBars_.size())) {
+            const BarPattern pitchSource = generated;
             // Keep existing onset positions & durations, re-roll pitches unless Pitch is also locked
             for (int s = 0; s < 16; ++s) {
                 generated[s].active = cachedBars_[bar][s].active;
@@ -101,7 +113,16 @@ void BassEngine::generate(const GenerationParams& p) {
                 generated[s].isTurnaround32nd = cachedBars_[bar][s].isTurnaround32nd;
             }
             if (!p.lockPitch) {
-                applyPitchContour(generated, p, bar, rng, isFinalBar);
+                if (liminal) {
+                    // Each kept onset takes the pitch of the newest liminal note at or before it
+                    int last = 0;
+                    for (int s = 0; s < 16; ++s) {
+                        if (pitchSource[s].active) last = pitchSource[s].interval;
+                        if (generated[s].active) generated[s].interval = last;
+                    }
+                } else {
+                    applyPitchContour(generated, p, bar, rng, isFinalBar);
+                }
             }
         }
 
@@ -136,6 +157,152 @@ void BassEngine::generate(const GenerationParams& p) {
 
     cachedBars_ = workingBars;
     compileAndValidateMidi(cachedBars_, p);
+}
+
+std::vector<BassEngine::BarPattern> BassEngine::generateLiminalPhrase(const GenerationParams& p,
+                                                                     Mulberry32& rng,
+                                                                     int numBars)
+{
+    // Modelled on modern minimal / "Liminal" DnB bass loops (measured on a 16th grid at 172):
+    //  - everything in the sub octave, the bar root moving root <-> b2 (E<->F, F<->F#)
+    //  - notes held 7-18 sixteenths, with a 1-step grace note sliding into the held note
+    //  - "rolling" tails:  ". . F# E E . E E"
+    //  - pulse bars in 3-step groups (2 on / 1 off) against the 4/4 drums
+    //  - bar 4 is a busier chromatic fill that stops early, leaving a gap before the loop
+    std::vector<BarPattern> bars(static_cast<size_t>(numBars), BarPattern{});
+
+    const float d = std::clamp(p.noteDensity, 0.0f, 1.0f);
+    const float c = std::clamp(p.chromaticism, 0.0f, 1.0f);
+    const float o = std::clamp(p.octaveMovement, 0.0f, 1.0f);
+    const float v = std::clamp(p.phraseVariation, 0.0f, 1.0f);
+    const float L = std::clamp(p.noteLength, 0.0f, 1.0f);
+    const bool pulseStyle = (p.archetype == BassArchetype::LiminalPulse);
+
+    auto put = [](BarPattern& bar, int s, int interval, int len, int vel) {
+        if (s < 0 || s > 15) return;
+        auto& slot = bar[static_cast<size_t>(s)];
+        slot.active = true;
+        slot.interval = interval;
+        slot.durationSteps = std::max(1, len);
+        slot.isTurnaround32nd = false;
+        slot.velocity = std::clamp(vel, 1, 127);
+    };
+
+    // Grace notes in the loops sit a semitone, tone or minor 3rd above (or a semitone below)
+    auto graceInterval = [&](int target) {
+        const float r = rng.nextFloat();
+        if (r < 0.45f) return target + 1;
+        if (r < 0.75f) return target + 2;
+        if (r < 0.90f) return target + 3;
+        return target - 1;
+    };
+
+    // Bar-root plans for a 4-bar phrase (semitones from the key root); index 3 is the fill bar
+    static constexpr int kPlans[4][4] = {
+        { 0, 1, 1,  0 },   // root | b2 | b2->root | fill      (Boxes)
+        { 1, 0, 0,  1 },   // b2 | root | root/b2 | fill        (Nautilus)
+        { 0, 0, 1,  0 },   // root | root | b2 | fill           (Hustle)
+        { 0, 1, 0, -1 },   // root | b2 | root | fill under     (Holloway)
+    };
+    const int plan = rng.nextInt(0, 3);
+    const bool useB2 = c >= 0.15f;              // CHROMATIC near zero = stay on the root
+    const bool splitThird = rng.nextFloat() < 0.6f;
+
+    auto holdLen = [&](int span) {             // NOTE LENGTH trims holds, leaving air
+        return std::max(3, static_cast<int>(std::round(static_cast<float>(span) * (0.45f + 0.55f * L))));
+    };
+
+    auto sustainBar = [&](BarPattern& bar, int root, int nextRoot) {
+        int s = 0;
+        if (rng.nextFloat() < 0.25f + 0.55f * d) {
+            put(bar, 0, graceInterval(root), 1, 100);
+            s = 1;
+        }
+        const bool roll = rng.nextFloat() < 0.15f + 0.70f * d;
+        put(bar, s, root, holdLen((roll ? 8 : 16) - s), rng.nextInt(112, 122));
+        if (roll) {
+            const int tailRoot = (nextRoot != root && rng.nextFloat() < 0.5f) ? nextRoot : root;
+            put(bar, 10, graceInterval(tailRoot), 1, 104);
+            put(bar, 11, tailRoot, 2, 112);
+            put(bar, 14, tailRoot, 2, 108);
+        }
+    };
+
+    auto splitBar = [&](BarPattern& bar, int first, int second) {
+        int s = 0;
+        if (rng.nextFloat() < 0.3f + 0.4f * d) {
+            put(bar, 0, graceInterval(first), 1, 100);
+            s = 1;
+        }
+        put(bar, s, first, holdLen(9 - s), 116);
+        put(bar, 10, graceInterval(second), 1, 104);
+        put(bar, 11, second, std::max(2, holdLen(5)), 114);
+    };
+
+    auto pulseBar = [&](BarPattern& bar, int root) {
+        for (int s = 0; s < 16; s += 3) {
+            const bool accent = (s == 0 || s == 6 || s == 12);
+            int iv = root;
+            if (useB2 && s > 0 && rng.nextFloat() < std::max(0.0f, c - 0.3f))
+                iv = root + 1;
+            put(bar, s, iv, (s == 15) ? 1 : 2, accent ? 118 : 104);
+        }
+    };
+
+    auto fillBar = [&](BarPattern& bar, int root) {
+        const float busy = 0.3f + 0.7f * v;
+        if (pulseStyle) {
+            // lower-neighbour pulse:  "x x N R . N R . N R . N R"
+            put(bar, 0, root + (rng.nextFloat() < o ? 12 : 2), 1, 112);
+            put(bar, 1, root + (rng.nextFloat() < o ? 13 : 3), 1, 108);
+            for (int s = 2; s < 15; s += 3) {
+                if (s > 2 && rng.nextFloat() > busy) continue;
+                put(bar, s, root - 1, 1, 110);
+                put(bar, s + 1, root, 1, 116);
+            }
+        } else {
+            // "G F F G F F . F" then silence: a chromatic fill that stops early
+            put(bar, 0, graceInterval(root), 1, 110);
+            put(bar, 1, root, 2, 116);
+            put(bar, 3, root + (useB2 ? 2 : 0), 1, 108);
+            put(bar, 4, root, 2, 114);
+            put(bar, 7, root, 1, 110);
+            if (busy > 0.55f) {
+                const int up = (rng.nextFloat() < o) ? 12 : 3;
+                put(bar, 8, root + up, 2, 112);
+                put(bar, 10, root + up + (rng.nextFloat() < 0.5f ? 2 : -2), 1, 104);
+            }
+            // steps 11-15 left empty on purpose: the gap before the phrase restarts
+        }
+    };
+
+    for (int b = 0; b < numBars; ++b) {
+        const int pos = b % 4;
+        auto& bar = bars[static_cast<size_t>(b)];
+        const bool isFill = (numBars == 2) ? (b == 1) : (numBars >= 4 && pos == 3);
+
+        int root = useB2 ? kPlans[plan][pos] : 0;
+        const int nextRoot = useB2 ? kPlans[plan][(pos + 1) % 4] : 0;
+
+        // Second half of an 8-bar phrase: occasional root -> b2 swap for variety
+        if (b >= 4 && !isFill && useB2 && root == 0 && rng.nextFloat() < v * 0.4f)
+            root = 1;
+
+        if (isFill) {
+            fillBar(bar, root);
+            continue;
+        }
+
+        if (pulseStyle) {
+            if (pos == 1 && rng.nextFloat() < 0.5f) sustainBar(bar, root, nextRoot); // contrast
+            else if (pos == 2 && splitThird && useB2) splitBar(bar, root, 0);
+            else pulseBar(bar, root);
+        } else {
+            if (pos == 2 && splitThird && useB2) splitBar(bar, root, (nextRoot == root) ? 0 : nextRoot);
+            else sustainBar(bar, root, nextRoot);
+        }
+    }
+    return bars;
 }
 
 void BassEngine::applyCallResponse(std::vector<BarPattern>& bars, const GenerationParams& p) {

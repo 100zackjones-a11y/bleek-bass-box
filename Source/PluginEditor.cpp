@@ -651,6 +651,7 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     setupKnob(decayKnob_, decayLbl_, "DECAY");
     setupKnob(sustainKnob_, sustainLbl_, "SUSTAIN");
     setupKnob(releaseKnob_, releaseLbl_, "RELEASE");
+    setupKnob(glideKnob_, glideLbl_, "GLIDE");
 
     // LCD Piano Roll & Bar Selector
     addAndMakeVisible(pianoRoll_);
@@ -672,7 +673,8 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
         "1996-1997 Dark Jungle / Early Techstep",
         "1998-1999 Techstep / Early Neurofunk",
         "2000-2001 Minimal Dark Rollers",
-        "2002-2004 Liquid Funk & Jump-Up"
+        "2002-2004 Liquid Funk & Jump-Up",
+        "2015-2024 Liminal / Modern Minimal"
     }, 1);
     addAndMakeVisible(eraBox_);
 
@@ -680,7 +682,8 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
         "Roots Jungle Sub-Bass", "808-Style Sub", "Dub-Influenced Bass",
         "Reese Bassline", "Techstep", "Neurofunk", "Rolling Bassline",
         "Minimal Dark Roller", "Liquid Funk", "Jump-Up",
-        "Stabbing Bassline", "Pedal-Note Pulse"
+        "Stabbing Bassline", "Pedal-Note Pulse",
+        "Liminal Sub Roller", "Liminal Pulse"
     }, 1);
     addAndMakeVisible(archetypeBox_);
 
@@ -845,7 +848,8 @@ void BleekBassBoxEditor::selectSlot(int slot) {
     const juce::String sfx = (currentSlot_ == 1) ? "B" : "";
 
     // Re-point the four ADSR knobs at this slot's parameters
-    attAttack_.reset(); attDecay_.reset(); attSustain_.reset(); attRelease_.reset();
+    attAttack_.reset(); attDecay_.reset(); attSustain_.reset(); attRelease_.reset(); attGlide_.reset();
+    attGlide_   = std::make_unique<SliderAtt>(processor_.apvts, "glide" + sfx, glideKnob_);
     attAttack_  = std::make_unique<SliderAtt>(processor_.apvts, "attack" + sfx, attackKnob_);
     attDecay_   = std::make_unique<SliderAtt>(processor_.apvts, "decay" + sfx, decayKnob_);
     attSustain_ = std::make_unique<SliderAtt>(processor_.apvts, "sustain" + sfx, sustainKnob_);
@@ -996,7 +1000,7 @@ void BleekBassBoxEditor::resized() {
 
     samplerRow.removeFromLeft(14);
     samplerRow.removeFromTop(8);
-    const int knobW = samplerRow.getWidth() / 4;
+    const int knobW = samplerRow.getWidth() / 5;
     auto placeKnob = [&](juce::Slider& s, juce::Label& l) {
         auto cell = samplerRow.removeFromLeft(knobW);
         l.setBounds(cell.removeFromTop(14));
@@ -1006,6 +1010,7 @@ void BleekBassBoxEditor::resized() {
     placeKnob(decayKnob_, decayLbl_);
     placeKnob(sustainKnob_, sustainLbl_);
     placeKnob(releaseKnob_, releaseLbl_);
+    placeKnob(glideKnob_, glideLbl_);
 
     area.removeFromTop(16);
 
