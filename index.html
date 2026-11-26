@@ -202,6 +202,14 @@
       color: var(--amber-led);
     }
 
+    .drag-badge {
+      cursor: grab;
+      text-decoration: none;
+    }
+    .drag-badge:active {
+      cursor: grabbing;
+    }
+
     /* Embedded Rectangular LED Lens */
     .led-lens {
       width: 9px;
@@ -343,7 +351,7 @@
   <!-- Main Brushed Steel Faceplate -->
   <div class="faceplate">
 
-    <!-- TOP BAR: Branding, Transport, Generate, Export, Seed LCD -->
+    <!-- TOP BAR: Branding, Transport, Generate, Drag .MID, Export, Seed LCD -->
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2.5">
         <div class="w-1.5 h-9 bg-[#ff9e1b] rounded-sm shadow-[0_0_8px_rgba(255,158,27,0.5)]"></div>
@@ -371,6 +379,10 @@
         <button id="btnGenerate" class="hw-btn hw-btn-orange">
           <span>GENERATE</span>
         </button>
+
+        <a id="btnDragMid" draggable="true" class="hw-btn hw-btn-amber drag-badge" title="Drag directly onto your Desktop or into Ableton Live">
+          <span>⠿ DRAG .MID</span>
+        </a>
 
         <button id="btnExportMid" class="hw-btn hw-btn-amber" title="Download Standard MIDI File (.mid) for Ableton Live">
           <span>EXPORT .MID</span>
@@ -437,16 +449,16 @@
       </div>
     </div>
 
-    <!-- BAR TABS + BACKLIT EMERALD LCD PIANO ROLL -->
+    <!-- BAR TABS + BACKLIT EMERALD LCD PIANO ROLL WITH SIDE PIANO KEYBOARD -->
     <div class="flex flex-col gap-1.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div id="barTabsContainer" class="flex flex-wrap gap-1"></div>
         <div class="mono text-[11px] text-slate-400">
-          DRUM GRID: <span class="text-[#ff9e1b] font-bold">K</span>=KICK &nbsp; <span class="text-[#26f79a] font-bold">S</span>=SNARE &nbsp;|&nbsp; <span class="text-slate-300">SPACE = PLAY/STOP</span>
+          CLICK PIANO KEYS TO AUDITION &nbsp;|&nbsp; <span class="text-[#ff9e1b] font-bold">K</span>=KICK &nbsp; <span class="text-[#26f79a] font-bold">S</span>=SNARE &nbsp;|&nbsp; <span class="text-slate-300">SPACE = PLAY/STOP</span>
         </div>
       </div>
-      <div class="lcd-screen h-48 w-full">
-        <canvas id="pianoRollCanvas" class="w-full h-full block"></canvas>
+      <div class="lcd-screen h-56 w-full">
+        <canvas id="pianoRollCanvas" class="w-full h-full block cursor-pointer"></canvas>
       </div>
     </div>
 
@@ -584,6 +596,7 @@
   const TICKS_PER_STEP = 120;
   const TICKS_PER_BAR = 1920;
   const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const BLACK_KEY_PCS = new Set([1, 3, 6, 8, 10]);
 
   const ERA_CONFIGS = [
     { name: '1994–1995 Foundation / Ragga Jungle', bpm: 164, swing: 0.530, drum: 1, arch: 0 },
@@ -615,6 +628,7 @@
     lockRhythm: false, lockPitch: false, lockPhrase: false, lockGroove: false,
     adsr: { attack: 0.008, decay: 0.450, sustain: 0.85, release: 0.040 },
     selectedBar: 0, isPlaying: false, breakbeatEnabled: true,
+    currentlySoundingMidi: -1,
     cachedBars: [], pattern: []
   };
 
@@ -991,7 +1005,16 @@
 
     src.connect(envGain); envGain.connect(audioCtx.destination);
     src.start(now); src.stop(noteOffTime + release + 0.02);
-    activeBassVoice = { srcNode: src, gainNode: envGain };
+    activeBassVoice = { srcNode: src, gainNode: envGain, midiNote, endTime: noteOffTime + release };
+
+    state.currentlySoundingMidi = midiNote;
+    drawPianoRoll();
+    setTimeout(() => {
+      if (state.currentlySoundingMidi === midiNote && (!activeBassVoice || audioCtx.currentTime >= activeBassVoice.endTime - 0.01)) {
+        state.currentlySoundingMidi = -1;
+        drawPianoRoll();
+      }
+    }, Math.max(60, (durationSec + release) * 1000));
   }
 
   function triggerDrumHit(hitType, time) {
@@ -1030,6 +1053,7 @@
     } else {
       btn.classList.remove('led-on-amber'); lbl.textContent = 'PLAY';
       clearInterval(schedulerTimer); schedulerTimer = null;
+      state.currentlySoundingMidi = -1;
       if (activeBassVoice) { try { activeBassVoice.srcNode.stop(); } catch (_) {} }
       drawPianoRoll();
     }
@@ -1056,7 +1080,7 @@
     }
   }
 
-  function exportMidiFile() {
+  function buildMidiBinaryData() {
     const writeVarLen = (val) => {
       let buffer = [val & 0x7F];
       while ((val >>= 7) > 0) buffer.unshift((val & 0x7F) | 0x80);
@@ -1082,11 +1106,18 @@
     const header = [0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, (PPQN >> 8) & 0xFF, PPQN & 0xFF];
     const trkLen = trackBytes.length;
     const trackHeader = [0x4D, 0x54, 0x72, 0x6B, (trkLen >> 24) & 0xFF, (trkLen >> 16) & 0xFF, (trkLen >> 8) & 0xFF, trkLen & 0xFF];
-    const blob = new Blob([new Uint8Array([...header, ...trackHeader, ...trackBytes])], { type: 'audio/midi' });
+    const bytes = new Uint8Array([...header, ...trackHeader, ...trackBytes]);
+    const fileName = `BLEEK_${ARCHETYPE_NAMES[state.archetype].replace(/[^A-Za-z0-9]/g, '_')}_${state.bpm}BPM_S${state.seed}.mid`;
+    return { bytes, fileName };
+  }
+
+  function exportMidiFile() {
+    const { bytes, fileName } = buildMidiBinaryData();
+    const blob = new Blob([bytes], { type: 'audio/midi' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `BLEEK_${ARCHETYPE_NAMES[state.archetype].replace(/[^A-Za-z0-9]/g, '_')}_${state.bpm}BPM_S${state.seed}.mid`;
+    a.download = fileName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 
@@ -1116,6 +1147,21 @@
     }
   }
 
+  // Geometry helper shared between piano roll renderer and click-to-audition keyboard
+  function getPianoRollLayout(w, h) {
+    const padX = 8, padY = 8, drumH = 18;
+    const keysW = 54;
+    const gridX = padX + keysW;
+    const gridY = padY + drumH + 4;
+    const gridW = w - gridX - padX;
+    const gridH = h - gridY - padY;
+    const minNote = state.rootMidiNote - 7;
+    const maxNote = state.rootMidiNote + 15;
+    const noteSpan = maxNote - minNote + 1;
+    const rowH = gridH / noteSpan;
+    return { padX, padY, drumH, keysW, gridX, gridY, gridW, gridH, minNote, maxNote, noteSpan, rowH };
+  }
+
   function drawPianoRoll() {
     const canvas = document.getElementById('pianoRollCanvas'), rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -1123,45 +1169,122 @@
     const ctx = canvas.getContext('2d'); ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     const w = rect.width, h = rect.height; ctx.clearRect(0, 0, w, h);
 
-    const padX = 10, padY = 8, drumH = 18, gridX = padX, gridY = padY + drumH + 4;
-    const gridW = w - padX * 2, gridH = h - gridY - padY, stepW = gridW / 16;
+    const L = getPianoRollLayout(w, h);
+    const stepW = L.gridW / 16;
     const drums = DRUM_TEMPLATES[state.drumContext];
-    ctx.font = 'bold 10px "Share Tech Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-    for (let s = 0; s < 16; s++) {
-      const sx = gridX + s * stepW;
-      ctx.strokeStyle = (s % 4 === 0) ? 'rgba(38, 247, 154, 0.25)' : 'rgba(38, 247, 154, 0.08)';
-      ctx.beginPath(); ctx.moveTo(sx, gridY); ctx.lineTo(sx, gridY + gridH); ctx.stroke();
-      if (drums[s] === 1) { ctx.fillStyle = '#ff9e1b'; ctx.fillRect(sx + 2, padY, stepW - 4, drumH - 2); ctx.fillStyle = '#090a0d'; ctx.fillText('K', sx + stepW / 2, padY + (drumH - 2) / 2); }
-      else if (drums[s] === 2) { ctx.fillStyle = '#26f79a'; ctx.fillRect(sx + 2, padY, stepW - 4, drumH - 2); ctx.fillStyle = '#090a0d'; ctx.fillText('S', sx + stepW / 2, padY + (drumH - 2) / 2); }
+    // 1. Top-left "KEYS" header pill above piano keyboard
+    ctx.fillStyle = 'rgba(38, 247, 154, 0.12)';
+    ctx.fillRect(L.padX, L.padY, L.keysW - 3, L.drumH - 2);
+    ctx.fillStyle = '#26f79a';
+    ctx.font = 'bold 9.5px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PIANO', L.padX + (L.keysW - 3) / 2, L.padY + (L.drumH - 2) / 2);
+
+    // 2. Vertical Piano Keyboard Sidebar + Horizontal Pitch Lane Shading
+    for (let m = L.minNote; m <= L.maxNote; m++) {
+      const pc = ((m % 12) + 12) % 12;
+      const isBlack = BLACK_KEY_PCS.has(pc);
+      const isRoot = (m === state.rootMidiNote);
+      const isActive = (m === state.currentlySoundingMidi);
+      const ry = L.gridY + L.gridH - (m - L.minNote + 1) * L.rowH;
+
+      // Subtle horizontal lane striping across sequencer grid
+      if (isActive) {
+        ctx.fillStyle = 'rgba(255, 158, 27, 0.18)';
+        ctx.fillRect(L.gridX, ry, L.gridW, L.rowH);
+      } else if (isRoot) {
+        ctx.fillStyle = 'rgba(38, 247, 154, 0.14)';
+        ctx.fillRect(L.gridX, ry, L.gridW, L.rowH);
+      } else if (isBlack) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fillRect(L.gridX, ry, L.gridW, L.rowH);
+      }
+
+      // Horizontal lane divider
+      ctx.strokeStyle = 'rgba(38, 247, 154, 0.07)';
+      ctx.beginPath(); ctx.moveTo(L.gridX, ry); ctx.lineTo(L.gridX + L.gridW, ry); ctx.stroke();
+
+      // Piano Key Body
+      const keyX = L.padX;
+      const keyW = L.keysW - 3;
+      const keyH = Math.max(2, L.rowH - 0.8);
+
+      if (isActive) {
+        ctx.fillStyle = '#ff9e1b';
+      } else if (isRoot) {
+        ctx.fillStyle = '#26f79a';
+      } else if (isBlack) {
+        ctx.fillStyle = '#091410';
+      } else {
+        ctx.fillStyle = '#183d2e';
+      }
+      ctx.fillRect(keyX, ry + 0.4, keyW, keyH);
+
+      // Black key inner shorter cap visual
+      if (isBlack && !isActive) {
+        ctx.fillStyle = '#040a08';
+        ctx.fillRect(keyX, ry + 0.4, keyW * 0.62, keyH);
+      }
+
+      // Key outline
+      ctx.strokeStyle = 'rgba(38, 247, 154, 0.35)';
+      ctx.strokeRect(keyX, ry + 0.4, keyW, keyH);
+
+      // Note name label on every key (C1, C#1, D1...)
+      const noteLabel = `${NOTE_NAMES[pc]}${Math.floor(m / 12) - 1}`;
+      ctx.font = (isRoot || isActive) ? 'bold 9px "Share Tech Mono", monospace' : '8.5px "Share Tech Mono", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = (isActive || isRoot) ? '#061b14' : (isBlack ? '#78b89b' : '#26f79a');
+      ctx.fillText(noteLabel, keyX + keyW - 4, ry + L.rowH / 2);
     }
 
-    const minNote = state.rootMidiNote - 7, maxNote = state.rootMidiNote + 15, rowH = gridH / (maxNote - minNote + 1);
-    const rootY = gridY + gridH - (state.rootMidiNote - minNote + 1) * rowH;
-    ctx.fillStyle = 'rgba(38, 247, 154, 0.12)'; ctx.fillRect(gridX, rootY, gridW, rowH);
+    // 3. 16-Step Grid Lines & Drum Kick/Snare Markers
+    ctx.font = 'bold 10px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    for (let s = 0; s < 16; s++) {
+      const sx = L.gridX + s * stepW;
+      ctx.strokeStyle = (s % 4 === 0) ? 'rgba(38, 247, 154, 0.28)' : 'rgba(38, 247, 154, 0.08)';
+      ctx.beginPath(); ctx.moveTo(sx, L.gridY); ctx.lineTo(sx, L.gridY + L.gridH); ctx.stroke();
 
+      if (drums[s] === 1) {
+        ctx.fillStyle = '#ff9e1b'; ctx.fillRect(sx + 2, L.padY, stepW - 4, L.drumH - 2);
+        ctx.fillStyle = '#090a0d'; ctx.fillText('K', sx + stepW / 2, L.padY + (L.drumH - 2) / 2);
+      } else if (drums[s] === 2) {
+        ctx.fillStyle = '#26f79a'; ctx.fillRect(sx + 2, L.padY, stepW - 4, L.drumH - 2);
+        ctx.fillStyle = '#090a0d'; ctx.fillText('S', sx + stepW / 2, L.padY + (L.drumH - 2) / 2);
+      }
+    }
+
+    // 4. Sequencer MIDI Notes for Selected Bar
     const barStartTick = state.selectedBar * TICKS_PER_BAR, barEndTick = barStartTick + TICKS_PER_BAR;
     for (const n of state.pattern) {
       if (n.startTick >= barEndTick || (n.startTick + n.durationTicks) <= barStartTick) continue;
       const cStart = Math.max(n.startTick, barStartTick) - barStartTick, cEnd = Math.min(n.startTick + n.durationTicks, barEndTick) - barStartTick;
-      const nx = gridX + (cStart / TICKS_PER_BAR) * gridW, nw = Math.max(4, ((cEnd - cStart) / TICKS_PER_BAR) * gridW);
-      const pitch = Math.max(minNote, Math.min(maxNote, n.midiNote)), ny = gridY + gridH - (pitch - minNote + 1) * rowH;
-      ctx.fillStyle = '#26f79a'; ctx.fillRect(nx, ny + 1, nw, Math.max(4, rowH - 2));
+      const nx = L.gridX + (cStart / TICKS_PER_BAR) * L.gridW, nw = Math.max(4, ((cEnd - cStart) / TICKS_PER_BAR) * L.gridW);
+      const pitch = Math.max(L.minNote, Math.min(L.maxNote, n.midiNote)), ny = L.gridY + L.gridH - (pitch - L.minNote + 1) * L.rowH;
+
+      const isCurrentlyHit = (state.isPlaying && n.midiNote === state.currentlySoundingMidi);
+      ctx.fillStyle = isCurrentlyHit ? '#ff9e1b' : '#26f79a';
+      ctx.fillRect(nx, ny + 0.8, nw, Math.max(4, L.rowH - 1.6));
+
       if (nw > 22) {
         ctx.fillStyle = '#061b14'; ctx.font = 'bold 9px "Share Tech Mono", monospace';
-        ctx.fillText(`${NOTE_NAMES[n.midiNote % 12]}${Math.floor(n.midiNote / 12) - 1}`, nx + nw / 2, ny + rowH / 2);
+        ctx.fillText(`${NOTE_NAMES[n.midiNote % 12]}${Math.floor(n.midiNote / 12) - 1}`, nx + nw / 2, ny + L.rowH / 2);
       }
     }
 
+    // 5. Real-Time Playhead & Auto-Follow
     if (state.isPlaying && audioCtx) {
       const elapsed = Math.max(0, audioCtx.currentTime - playStartTime), secPerBar = (60.0 / state.bpm) * 4.0;
       const totalBarPos = (elapsed / secPerBar) % state.phraseBars, activeBar = Math.floor(totalBarPos);
       if (activeBar !== state.selectedBar) { state.selectedBar = activeBar; refreshBarTabs(); drawPianoRoll(); return; }
-      const frac = totalBarPos - activeBar, px = gridX + frac * gridW;
-      const trailGrad = ctx.createLinearGradient(Math.max(gridX, px - 36), 0, px, 0);
+      const frac = totalBarPos - activeBar, px = L.gridX + frac * L.gridW;
+      const trailGrad = ctx.createLinearGradient(Math.max(L.gridX, px - 36), 0, px, 0);
       trailGrad.addColorStop(0, 'rgba(255, 158, 27, 0.0)'); trailGrad.addColorStop(1, 'rgba(255, 158, 27, 0.16)');
-      ctx.fillStyle = trailGrad; ctx.fillRect(Math.max(gridX, px - 36), gridY, Math.min(36, px - gridX), gridH);
-      ctx.strokeStyle = '#ff9e1b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, gridY); ctx.lineTo(px, gridY + gridH); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = trailGrad; ctx.fillRect(Math.max(L.gridX, px - 36), L.gridY, Math.min(36, px - L.gridX), L.gridH);
+      ctx.strokeStyle = '#ff9e1b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, L.gridY); ctx.lineTo(px, L.gridY + L.gridH); ctx.stroke(); ctx.lineWidth = 1;
     }
   }
 
@@ -1210,6 +1333,37 @@
       el.addEventListener('touchstart', e => onStart(e.touches[0].clientY), { passive: true });
       window.addEventListener('touchmove', e => { if (dragging) onMove(e.touches[0].clientY); }, { passive: true });
       window.addEventListener('touchend', () => { dragging = false; });
+    });
+
+    // Clickable Side Piano Keyboard to audition individual bass pitches
+    const pianoCanvas = document.getElementById('pianoRollCanvas');
+    pianoCanvas.addEventListener('mousedown', (e) => {
+      const rect = pianoCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const L = getPianoRollLayout(rect.width, rect.height);
+      if (y >= L.gridY && y <= L.gridY + L.gridH) {
+        const idxFromBottom = Math.floor((L.gridY + L.gridH - y) / L.rowH);
+        const clickedMidi = Math.max(L.minNote, Math.min(L.maxNote, L.minNote + idxFromBottom));
+        if (x <= L.gridX) {
+          triggerBassNote(clickedMidi, 0.92, 0, 0.40);
+        }
+      }
+    });
+
+    // Native Browser File Drag-Out for DRAG .MID
+    const dragBtn = document.getElementById('btnDragMid');
+    dragBtn.addEventListener('dragstart', (e) => {
+      const { bytes, fileName } = buildMidiBinaryData();
+      const blob = new Blob([bytes], { type: 'audio/midi' });
+      const blobUrl = URL.createObjectURL(blob);
+      e.dataTransfer.effectAllowed = 'copy';
+      // Chrome / Edge native OS file drag-out protocol
+      e.dataTransfer.setData('DownloadURL', `audio/midi:${fileName}:${blobUrl}`);
+    });
+    dragBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      exportMidiFile();
     });
 
     document.getElementById('btnPlay').addEventListener('click', togglePlay);
