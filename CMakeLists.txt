@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
-project(BleekBassBox VERSION 1.0.0)
+# Release builds pass -DBLEEK_VERSION=x.y.z (taken from the git tag in CI)
+set(BLEEK_VERSION "1.0.0" CACHE STRING "Plugin version")
+project(BleekBassBox VERSION ${BLEEK_VERSION})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

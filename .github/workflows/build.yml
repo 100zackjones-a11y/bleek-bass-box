@@ -3,11 +3,16 @@ name: Build plugin
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths-ignore:
       - "index.html"
       - "**.md"
   pull_request:
   workflow_dispatch:
+
+env:
+  PLUGINVAL_VERSION: v1.0.4
+  PLUGIN_NAME: BLEEK BASS BOX
 
 jobs:
   windows:
@@ -19,8 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Work out version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "VERSION_ARG=-DBLEEK_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"; fi
+
       - name: Configure
-        run: cmake -B build -A x64 2>&1 | tee configure.log; exit ${PIPESTATUS[0]}
+        run: cmake -B build -A x64 $VERSION_ARG 2>&1 | tee configure.log; exit ${PIPESTATUS[0]}
 
       - name: Build
         run: cmake --build build --config Release --parallel 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
@@ -36,6 +45,22 @@ jobs:
           if [ -z "$errs" ]; then errs=$(tail -n 40 configure.log build.log 2>/dev/null); fi
           msg=$(printf '%s' "$errs" | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
           echo "::error title=Windows build errors::$msg"
+
+      - name: Validate VST3 (pluginval)
+        run: |
+          curl -sSL -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/download/${PLUGINVAL_VERSION}/pluginval_Windows.zip"
+          7z x -y -opluginval pluginval.zip > /dev/null
+          ./pluginval/pluginval.exe --strictness-level 5 --verbose --timeout-ms 300000 \
+            --output-dir pluginval-logs \
+            --validate "build/BleekBassBox_artefacts/Release/VST3/${PLUGIN_NAME}.vst3"
+
+      - name: Upload pluginval log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pluginval-log-Windows
+          path: pluginval-logs/
+          if-no-files-found: ignore
 
       - name: Upload VST3
         uses: actions/upload-artifact@v4
@@ -55,8 +80,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Work out version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "VERSION_ARG=-DBLEEK_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"; fi
+
       - name: Configure
-        run: cmake -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" 2>&1 | tee configure.log; exit ${PIPESTATUS[0]}
+        run: cmake -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" $VERSION_ARG 2>&1 | tee configure.log; exit ${PIPESTATUS[0]}
 
       - name: Build
         run: cmake --build build --config Release --parallel -- -quiet 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
@@ -72,10 +101,83 @@ jobs:
           msg=$(printf '%s' "$errs" | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\n/%0A/g')
           echo "::error title=macOS build errors::$msg"
 
+      - name: Ad-hoc sign bundles
+        run: |
+          cd build/BleekBassBox_artefacts/Release
+          codesign --force --deep --sign - "VST3/${PLUGIN_NAME}.vst3" "AU/${PLUGIN_NAME}.component"
+
+      - name: Validate VST3 (pluginval)
+        run: |
+          curl -sSL -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/download/${PLUGINVAL_VERSION}/pluginval_macOS.zip"
+          unzip -q -o pluginval.zip -d pluginval
+          PV=pluginval/pluginval.app/Contents/MacOS/pluginval
+          $PV --strictness-level 5 --verbose --timeout-ms 300000 --output-dir pluginval-logs \
+            --validate "build/BleekBassBox_artefacts/Release/VST3/${PLUGIN_NAME}.vst3"
+
+      - name: Validate AU (auval)
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R "build/BleekBassBox_artefacts/Release/AU/${PLUGIN_NAME}.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -a | grep -i BlkS || true
+          auval -strict -v aumu BlkB BlkS
+
+      - name: Upload pluginval log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pluginval-log-macOS
+          path: pluginval-logs/
+          if-no-files-found: ignore
+
+      - name: Zip bundles (keeps macOS permissions + signatures)
+        run: |
+          mkdir -p dist
+          cd build/BleekBassBox_artefacts/Release
+          ditto -c -k --keepParent "VST3/${PLUGIN_NAME}.vst3" "$GITHUB_WORKSPACE/dist/BLEEK-BASS-BOX-macOS-VST3.zip"
+          ditto -c -k --keepParent "AU/${PLUGIN_NAME}.component" "$GITHUB_WORKSPACE/dist/BLEEK-BASS-BOX-macOS-AU.zip"
+
       - name: Upload plugins
         uses: actions/upload-artifact@v4
         with:
           name: BLEEK-BASS-BOX-macOS
-          path: |
-            build/BleekBassBox_artefacts/Release/VST3/
-            build/BleekBassBox_artefacts/Release/AU/
+          path: dist/
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: BLEEK-BASS-BOX-*
+
+      - name: Package release files
+        run: |
+          mkdir dist
+          cp artifacts/BLEEK-BASS-BOX-macOS/*.zip dist/
+          (cd artifacts/BLEEK-BASS-BOX-Windows-VST3 && zip -qr ../../dist/BLEEK-BASS-BOX-Windows-VST3.zip .)
+          (cd artifacts/BLEEK-BASS-BOX-Windows-Standalone && zip -qr ../../dist/BLEEK-BASS-BOX-Windows-Standalone.zip .)
+          ls -la dist
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            **macOS (Ableton Live 12):** unzip and move `BLEEK BASS BOX.vst3` to `~/Library/Audio/Plug-Ins/VST3/` and/or `BLEEK BASS BOX.component` to `~/Library/Audio/Plug-Ins/Components/`.
+            These builds aren't notarized yet, so clear the download quarantine once:
+            ```
+            xattr -cr ~/Library/Audio/Plug-Ins/VST3/BLEEK\ BASS\ BOX.vst3 ~/Library/Audio/Plug-Ins/Components/BLEEK\ BASS\ BOX.component
+            ```
+
+            **Windows:** unzip and copy `BLEEK BASS BOX.vst3` to `C:\Program Files\Common Files\VST3\`.
+
+            Then in Live: Settings → Plug-Ins → Rescan.
