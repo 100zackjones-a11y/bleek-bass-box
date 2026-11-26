@@ -219,6 +219,41 @@ bool MonoSampler::parseKeyFromFilename(const juce::String& fileName, DetectedKey
             return true;
         }
     }
+
+    // Second pass: a bare note tag with no quality, e.g. "FSL_C#_808_Bass", "Sub_F", "Reese_Ab1".
+    // Sample packs usually tag one-shots with just the root note; treat it as minor (DnB default).
+    // Only single-letter notes need the token to stand alone, so words like "Bass"/"Deep" never match.
+    for (int i = 0; i < tokens.size(); ++i) {
+        const auto tok = tokens[i];
+        auto [pc, consumed] = parsePitchClassToken(tok);
+        if (pc < 0) continue;
+
+        const auto rest = tok.substring(consumed);
+        int octave = -1;
+        if (rest.isEmpty()) {
+            // A lone capital letter only counts if it is upper case (avoid "a", "e" words)
+            if (consumed == 1 && !juce::CharacterFunctions::isUpperCase(tok[0]))
+                continue;
+        } else if (rest.length() == 1 && rest.containsOnly("0123456")) {
+            octave = rest.getIntValue();
+        } else {
+            continue;
+        }
+
+        int rootMidi = 24 + pc; // C1..B1 octave by default
+        if (octave >= 0) {
+            rootMidi = 12 * (octave + 1) + pc;
+            while (rootMidi > 47) rootMidi -= 12; // keep within the bass root range C1..B2
+            while (rootMidi < 24) rootMidi += 12;
+        }
+
+        outInfo.pitchClass = pc;
+        outInfo.isMinor = true;
+        outInfo.recommendedRootMidi = rootMidi;
+        outInfo.confidence = 0.90f;
+        outInfo.label = formatKeyLabel(pc, true, rootMidi);
+        return true;
+    }
     return false;
 }
 
