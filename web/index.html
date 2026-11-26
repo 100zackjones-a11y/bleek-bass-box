@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLEEK BASS BOX — Model S-9404</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --rack-ear: #181a1f;
+      --chassis-top: #353a44;
+      --chassis-bot: #22262e;
+      --panel-recess: #1e2128;
+      --bevel-light: #4d5462;
+      --bevel-shadow: #0f1115;
+      --lcd-bg: #061b14;
+      --lcd-phosphor: #26f79a;
+      --amber-led: #ff9e1b;
+      --red-led: #ff3b30;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #17191f 0%, #090a0d 100%);
+      font-family: 'Inter', sans-serif;
+      color: #e2e6ec;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .mono {
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    /* 19-inch Studio Rack Chassis */
+    .rack-chassis {
+      width: 100%;
+      max-width: 1080px;
+      background: linear-gradient(180deg, var(--chassis-top) 0%, var(--chassis-bot) 100%);
+      border-top: 2px solid var(--bevel-light);
+      border-left: 2px solid var(--bevel-light);
+      border-right: 2px solid var(--bevel-shadow);
+      border-bottom: 3px solid var(--bevel-shadow);
+      box-shadow: 0 28px 65px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255,255,255,0.08);
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: 28px 1fr 28px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    @media (max-width: 640px) {
+      .rack-chassis {
+        grid-template-columns: 16px 1fr 16px;
+      }
+    }
+
+    .rack-ear {
+      background: linear-gradient(90deg, #121418 0%, #1d2026 50%, #121418 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 26px 0;
+      border-right: 1px solid #0b0c0f;
+      border-left: 1px solid #0b0c0f;
+    }
+
+    .rack-slot {
+      width: 14px;
+      height: 24px;
+      background: #090a0d;
+      border-radius: 7px;
+      box-shadow: inset 0 2px 3px #000, 0 1px 0 rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .phillips-screw {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #7c8594 0%, #232730 75%, #111318 100%);
+      box-shadow: 0 1px 2px #000;
+      position: relative;
+    }
+    .phillips-screw::before,
+    .phillips-screw::after {
+      content: '';
+      position: absolute;
+      background: #0d0f12;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .phillips-screw::before { width: 7px; height: 1.5px; }
+    .phillips-screw::after  { width: 1.5px; height: 7px; }
+
+    /* Brushed steel faceplate texture */
+    .faceplate {
+      padding: 14px 16px;
+      background-image: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Recessed Hardware Sub-Panel */
+    .recessed-panel {
+      background: var(--panel-recess);
+      border-top: 1.5px solid var(--bevel-shadow);
+      border-left: 1.5px solid var(--bevel-shadow);
+      border-right: 1.5px solid var(--bevel-light);
+      border-bottom: 1.5px solid var(--bevel-light);
+      border-radius: 4px;
+      padding: 10px 12px;
+    }
+
+    /* Backlit 1990s Emerald LCD Screen */
+    .lcd-screen {
+      background: radial-gradient(ellipse at center, #09271d 0%, var(--lcd-bg) 100%);
+      border-top: 2px solid #080a0c;
+      border-left: 2px solid #080a0c;
+      border-right: 2px solid #484f5c;
+      border-bottom: 2px solid #484f5c;
+      border-radius: 3px;
+      box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.85), inset 0 0 6px rgba(38, 247, 154, 0.14);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lcd-screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.22) 0px,
+        rgba(0, 0, 0, 0.22) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    }
+
+    /* Tactile 90s Hardware Pushbutton */
+    .hw-btn {
+      background: linear-gradient(180deg, #434955 0%, #2a2e36 100%);
+      border-top: 1.5px solid #606878;
+      border-left: 1.5px solid #606878;
+      border-right: 1.5px solid #121418;
+      border-bottom: 2px solid #121418;
+      border-radius: 3px;
+      color: #e6ebf2;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      padding: 7px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.05s ease, filter 0.1s ease;
+    }
+    .hw-btn:hover { filter: brightness(1.08); }
+    .hw-btn:active, .hw-btn.pressed {
+      transform: translateY(1px);
+      border-top-color: #121418;
+      border-left-color: #121418;
+      border-right-color: #4a515e;
+      border-bottom-color: #4a515e;
+    }
+
+    .hw-btn-orange {
+      background: linear-gradient(180deg, #b84418 0%, #7d290a 100%);
+      border-top-color: #e06334;
+      border-left-color: #e06334;
+    }
+
+    .hw-btn-amber {
+      background: linear-gradient(180deg, #523e1c 0%, #2e220e 100%);
+      border-top-color: #82642f;
+      border-left-color: #82642f;
+      color: var(--amber-led);
+    }
+
+    /* Embedded Rectangular LED Lens */
+    .led-lens {
+      width: 9px;
+      height: 4px;
+      border-radius: 1px;
+      background: #14171c;
+      box-shadow: inset 0 1px 1px #000;
+      transition: all 0.1s ease;
+    }
+    .led-on-amber .led-lens {
+      background: var(--amber-led);
+      box-shadow: 0 0 8px var(--amber-led), 0 0 2px #fff;
+    }
+    .led-on-amber {
+      color: var(--amber-led);
+    }
+    .led-on-green .led-lens {
+      background: var(--lcd-phosphor);
+      box-shadow: 0 0 8px var(--lcd-phosphor);
+    }
+    .led-on-green {
+      color: var(--lcd-phosphor);
+    }
+
+    /* 90s Backlit LCD Select Dropdowns */
+    .lcd-select {
+      background-color: var(--lcd-bg);
+      color: var(--lcd-phosphor);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12.5px;
+      border-top: 1.5px solid #080a0c;
+      border-left: 1.5px solid #080a0c;
+      border-right: 1.5px solid #484f5c;
+      border-bottom: 1.5px solid #484f5c;
+      border-radius: 3px;
+      padding: 5px 8px;
+      outline: none;
+      cursor: pointer;
+    }
+    .lcd-select option {
+      background: #14181e;
+      color: #26f79a;
+    }
+
+    /* Custom 1990s Slotted Horizontal Fader */
+    input[type="range"].hw-fader {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      background: #0d0f13;
+      border-top: 1px solid #050608;
+      border-bottom: 1px solid #484f5c;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"].hw-fader::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 20px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4b5260 0%, #2a2f38 42%, #ff9e1b 46%, #ff9e1b 54%, #2a2f38 58%, #4b5260 100%);
+      border-top: 1px solid #757f92;
+      border-left: 1px solid #757f92;
+      border-right: 1px solid #0d0f13;
+      border-bottom: 1px solid #0d0f13;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.75);
+      cursor: pointer;
+    }
+    input[type="range"].hw-fader::-moz-range-thumb {
+      width: 14px;
+      height: 20px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4b5260 0%, #2a2f38 42%, #ff9e1b 46%, #ff9e1b 54%, #2a2f38 58%, #4b5260 100%);
+      border-top: 1px solid #757f92;
+      border-left: 1px solid #757f92;
+      border-right: 1px solid #0d0f13;
+      border-bottom: 1px solid #0d0f13;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.75);
+      cursor: pointer;
+    }
+
+    /* 3D Rotary Hardware Knob */
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .hw-knob {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 30%, #4e5563 0%, #171a20 80%);
+      box-shadow: 0 4px 7px rgba(0,0,0,0.75), inset 0 1px 1px rgba(255,255,255,0.2);
+      position: relative;
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hw-knob-cap {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #606878 0%, #252932 85%);
+      border: 1px solid #101216;
+      position: relative;
+    }
+    .hw-knob-pointer {
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 15px;
+      background: var(--amber-led);
+      border-radius: 1px;
+      box-shadow: 0 0 4px rgba(255, 158, 27, 0.6);
+    }
+
+    .drop-active {
+      outline: 2px dashed var(--amber-led) !important;
+      outline-offset: -3px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="rack-chassis">
+  <!-- Left 19" Studio Rack Ear -->
+  <div class="rack-ear">
+    <div class="rack-slot"><div class="phillips-screw"></div></div>
+    <div class="rack-slot"><div class="phillips-screw"></div></div>
+  </div>
+
+  <!-- Main Brushed Steel Faceplate -->
+  <div class="faceplate">
+
+    <!-- TOP BAR: Branding, Transport, Generate, Export, Seed LCD -->
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-1.5 h-9 bg-[#ff9e1b] rounded-sm shadow-[0_0_8px_rgba(255,158,27,0.5)]"></div>
+        <div>
+          <div class="text-base sm:text-lg font-extrabold tracking-wider text-slate-100 leading-none">
+            BLEEK BASS BOX
+          </div>
+          <div class="mono text-[10px] tracking-widest text-[#ff9e1b] mt-1">
+            MODEL S-9404 // DIGITAL BASS SYNTHESIS
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1.5">
+        <button id="btnPlay" class="hw-btn">
+          <span class="led-lens"></span>
+          <span id="playLabel">PLAY</span>
+        </button>
+
+        <button id="btnBreakToggle" class="hw-btn led-on-green">
+          <span class="led-lens"></span>
+          <span>BREAKBEAT</span>
+        </button>
+
+        <button id="btnGenerate" class="hw-btn hw-btn-orange">
+          <span>GENERATE</span>
+        </button>
+
+        <button id="btnExportMid" class="hw-btn hw-btn-amber" title="Download Standard MIDI File (.mid) for Ableton Live">
+          <span>EXPORT .MID</span>
+        </button>
+
+        <div class="lcd-screen px-2.5 py-1.5 flex items-center gap-2">
+          <span class="mono text-xs text-[#26f79a]" id="lcdStatusReadout">164.0 BPM | S:19940901</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAMPLER & ADSR STRIP -->
+    <div class="recessed-panel grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+      <!-- Sample Drop Zone + Loader + Key Detection -->
+      <div class="lg:col-span-6 flex flex-col gap-2">
+        <div id="sampleDropZone" class="lcd-screen h-20 p-2 flex flex-col justify-between cursor-pointer" title="Drop .wav, .aif, .aiff, or .flac bass sample here">
+          <div class="flex items-center justify-between gap-2 z-10">
+            <span id="sampleNameDisplay" class="mono text-xs text-[#26f79a] truncate font-bold">
+              INTERNAL PURE SUB (SINE)
+            </span>
+            <span id="detectedKeyBadge" class="mono text-[11px] px-2 py-0.5 rounded bg-[#26f79a]/15 border border-[#26f79a] text-[#26f79a] shrink-0">
+              KEY: F Min (F1)
+            </span>
+          </div>
+          <canvas id="waveformCanvas" class="w-full h-11 block z-10"></canvas>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <input type="file" id="sampleFileInput" accept=".wav,.aif,.aiff,.flac,.mp3,.ogg" class="hidden" />
+          <button id="btnLoadSample" class="hw-btn">LOAD SAMPLE</button>
+          <button id="btnPureSub" class="hw-btn">PURE SUB</button>
+          <button id="btnAuditionNote" class="hw-btn" title="Trigger root note preview">TRIG ROOT</button>
+          <select id="rootNoteSelect" class="lcd-select flex-1 min-w-[105px]"></select>
+        </div>
+      </div>
+
+      <!-- 4 Hardware ADSR Rotary Knobs ONLY -->
+      <div class="lg:col-span-6 flex flex-col justify-between h-full">
+        <div class="text-[10px] font-bold tracking-widest text-slate-400 text-center mb-1">
+          AMP ENVELOPE GENERATOR [ADSR]
+        </div>
+        <div class="grid grid-cols-4 gap-2 items-center justify-items-center py-1">
+          <div class="knob-wrap" data-param="attack">
+            <span class="text-[10px] font-bold tracking-wider text-slate-300">ATTACK</span>
+            <div class="hw-knob" id="knobAttack"><div class="hw-knob-cap"><div class="hw-knob-pointer"></div></div></div>
+            <span class="mono text-[11px] text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black" id="valAttack">8 ms</span>
+          </div>
+          <div class="knob-wrap" data-param="decay">
+            <span class="text-[10px] font-bold tracking-wider text-slate-300">DECAY</span>
+            <div class="hw-knob" id="knobDecay"><div class="hw-knob-cap"><div class="hw-knob-pointer"></div></div></div>
+            <span class="mono text-[11px] text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black" id="valDecay">450 ms</span>
+          </div>
+          <div class="knob-wrap" data-param="sustain">
+            <span class="text-[10px] font-bold tracking-wider text-slate-300">SUSTAIN</span>
+            <div class="hw-knob" id="knobSustain"><div class="hw-knob-cap"><div class="hw-knob-pointer"></div></div></div>
+            <span class="mono text-[11px] text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black" id="valSustain">85%</span>
+          </div>
+          <div class="knob-wrap" data-param="release">
+            <span class="text-[10px] font-bold tracking-wider text-slate-300">RELEASE</span>
+            <div class="hw-knob" id="knobRelease"><div class="hw-knob-cap"><div class="hw-knob-pointer"></div></div></div>
+            <span class="mono text-[11px] text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black" id="valRelease">40 ms</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BAR TABS + BACKLIT EMERALD LCD PIANO ROLL -->
+    <div class="flex flex-col gap-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div id="barTabsContainer" class="flex flex-wrap gap-1"></div>
+        <div class="mono text-[11px] text-slate-400">
+          DRUM GRID: <span class="text-[#ff9e1b] font-bold">K</span>=KICK &nbsp; <span class="text-[#26f79a] font-bold">S</span>=SNARE &nbsp;|&nbsp; <span class="text-slate-300">SPACE = PLAY/STOP</span>
+        </div>
+      </div>
+      <div class="lcd-screen h-48 w-full">
+        <canvas id="pianoRollCanvas" class="w-full h-full block"></canvas>
+      </div>
+    </div>
+
+    <!-- GENERATIVE MIDI ENGINE CONTROLS & DIMENSION LOCKS -->
+    <div class="recessed-panel flex flex-col gap-3">
+      <!-- Historical Era, Archetype, Drum Context, Phrase Length, Tempo -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
+        <div class="lg:col-span-4 flex flex-col gap-1">
+          <label class="text-[10px] font-bold tracking-wider text-slate-400">HISTORICAL ERA (1994–2004)</label>
+          <select id="eraSelect" class="lcd-select w-full">
+            <option value="0">1994–1995 Foundation / Ragga Jungle</option>
+            <option value="1">1996–1997 Dark Jungle / Early Techstep</option>
+            <option value="2">1998–1999 Techstep / Early Neurofunk</option>
+            <option value="3">2000–2001 Minimal Dark Rollers</option>
+            <option value="4">2002–2004 Liquid Funk &amp; Jump-Up</option>
+          </select>
+        </div>
+
+        <div class="lg:col-span-3 flex flex-col gap-1">
+          <label class="text-[10px] font-bold tracking-wider text-slate-400">BASS ARCHETYPE</label>
+          <select id="archetypeSelect" class="lcd-select w-full">
+            <option value="0">Roots Jungle Sub-Bass</option>
+            <option value="1">808-Style Sub</option>
+            <option value="2">Dub-Influenced Bass</option>
+            <option value="3">Reese Bassline</option>
+            <option value="4">Techstep</option>
+            <option value="5">Neurofunk</option>
+            <option value="6">Rolling Bassline</option>
+            <option value="7">Minimal Dark Roller</option>
+            <option value="8">Liquid Funk</option>
+            <option value="9">Jump-Up</option>
+            <option value="10">Stabbing Bassline</option>
+            <option value="11">Pedal-Note Pulse</option>
+          </select>
+        </div>
+
+        <div class="lg:col-span-3 flex flex-col gap-1">
+          <label class="text-[10px] font-bold tracking-wider text-slate-400">DRUM BREAK CONTEXT</label>
+          <select id="drumContextSelect" class="lcd-select w-full">
+            <option value="0">Two-Step DnB</option>
+            <option value="1" selected>Amen Break</option>
+            <option value="2">Think Break</option>
+            <option value="3">Rolling 16th Break</option>
+          </select>
+        </div>
+
+        <div class="lg:col-span-2 flex flex-col gap-1">
+          <label class="text-[10px] font-bold tracking-wider text-slate-400">PHRASE / BPM</label>
+          <div class="flex gap-1">
+            <select id="phraseSelect" class="lcd-select w-1/2">
+              <option value="1">1 Bar</option>
+              <option value="2">2 Bars</option>
+              <option value="4" selected>4 Bars</option>
+              <option value="8">8 Bars</option>
+            </select>
+            <input id="bpmInput" type="number" min="120" max="200" step="1" value="164" class="lcd-select w-1/2 text-center" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Dimension Lock Pushbuttons -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button id="lockRhythm" class="hw-btn"><span class="led-lens"></span><span>LOCK RHYTHM</span></button>
+        <button id="lockPitch"  class="hw-btn"><span class="led-lens"></span><span>LOCK PITCH</span></button>
+        <button id="lockPhrase" class="hw-btn"><span class="led-lens"></span><span>LOCK PHRASE</span></button>
+        <button id="lockGroove" class="hw-btn"><span class="led-lens"></span><span>LOCK GROOVE</span></button>
+      </div>
+
+      <!-- 8 Compositional Sliders -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 pt-1">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">NOTE DENSITY</span>
+          <input type="range" id="slDensity" class="hw-fader" min="0" max="1" step="0.01" value="0.50" />
+          <span id="lblDensity" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">50%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">CHROMATICISM</span>
+          <input type="range" id="slChromatic" class="hw-fader" min="0" max="1" step="0.01" value="0.30" />
+          <span id="lblChromatic" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">30%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">SYNCOPATION</span>
+          <input type="range" id="slSyncopation" class="hw-fader" min="0" max="1" step="0.01" value="0.55" />
+          <span id="lblSyncopation" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">55%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">OCTAVE MOVEMENT</span>
+          <input type="range" id="slOctave" class="hw-fader" min="0" max="1" step="0.01" value="0.35" />
+          <span id="lblOctave" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">35%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">PHRASE VARIATION</span>
+          <input type="range" id="slVariation" class="hw-fader" min="0" max="1" step="0.01" value="0.35" />
+          <span id="lblVariation" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">35%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">DRUM AWARENESS</span>
+          <input type="range" id="slDrumAware" class="hw-fader" min="0" max="1" step="0.01" value="0.75" />
+          <span id="lblDrumAware" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">75%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">NOTE LENGTH</span>
+          <input type="range" id="slLength" class="hw-fader" min="0" max="1" step="0.01" value="0.55" />
+          <span id="lblLength" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">55%</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold tracking-wider text-slate-300 w-32 shrink-0">SWING POCKET</span>
+          <input type="range" id="slSwing" class="hw-fader" min="0.50" max="0.62" step="0.005" value="0.53" />
+          <span id="lblSwing" class="mono text-xs text-[#26f79a] bg-[#061b14] px-1.5 py-0.5 rounded border border-black w-12 text-right">53.0%</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right 19" Studio Rack Ear -->
+  <div class="rack-ear">
+    <div class="rack-slot"><div class="phillips-screw"></div></div>
+    <div class="rack-slot"><div class="phillips-screw"></div></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const PPQN = 480;
+  const TICKS_PER_STEP = 120;
+  const TICKS_PER_BAR = 1920;
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  const ERA_CONFIGS = [
+    { name: '1994–1995 Foundation / Ragga Jungle', bpm: 164, swing: 0.530, drum: 1, arch: 0 },
+    { name: '1996–1997 Dark Jungle / Early Techstep', bpm: 170, swing: 0.505, drum: 0, arch: 4 },
+    { name: '1998–1999 Techstep / Early Neurofunk', bpm: 172, swing: 0.500, drum: 0, arch: 5 },
+    { name: '2000–2001 Minimal Dark Rollers', bpm: 173, swing: 0.500, drum: 0, arch: 7 },
+    { name: '2002–2004 Liquid Funk & Jump-Up', bpm: 174, swing: 0.500, drum: 3, arch: 8 }
+  ];
+
+  const DRUM_TEMPLATES = [
+    [1,0,0,0, 2,0,1,3, 0,3,0,0, 2,0,0,3],
+    [1,0,1,0, 2,0,3,3, 0,3,1,1, 2,0,3,3],
+    [1,0,3,1, 2,0,3,3, 1,3,1,0, 2,0,3,0],
+    [1,3,3,3, 2,3,1,3, 3,3,1,3, 2,3,3,3]
+  ];
+
+  const ARCHETYPE_NAMES = [
+    'Roots Jungle Sub-Bass', '808-Style Sub', 'Dub-Influenced Bass',
+    'Reese Bassline', 'Techstep', 'Neurofunk', 'Rolling Bassline',
+    'Minimal Dark Roller', 'Liquid Funk', 'Jump-Up',
+    'Stabbing Bassline', 'Pedal-Note Pulse'
+  ];
+
+  const state = {
+    era: 0, archetype: 0, drumContext: 1, rootMidiNote: 29, phraseBars: 4,
+    bpm: 164, seed: 19940901, noteDensity: 0.50, syncopation: 0.55,
+    phraseVariation: 0.35, noteLength: 0.55, chromaticism: 0.30,
+    octaveMovement: 0.35, drumAwareness: 0.75, swing: 0.53,
+    lockRhythm: false, lockPitch: false, lockPhrase: false, lockGroove: false,
+    adsr: { attack: 0.008, decay: 0.450, sustain: 0.85, release: 0.040 },
+    selectedBar: 0, isPlaying: false, breakbeatEnabled: true,
+    cachedBars: [], pattern: []
+  };
+
+  class Mulberry32 {
+    constructor(seed) { this.state = (seed >>> 0) || 0x9E3779B9; }
+    nextU32() {
+      let z = (this.state = (this.state + 0x6D2B79F5) >>> 0);
+      z = Math.imul(z ^ (z >>> 15), z | 1);
+      z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+      return (z ^ (z >>> 14)) >>> 0;
+    }
+    nextFloat() { return (this.nextU32() >>> 8) / 16777216.0; }
+    nextInt(min, max) { return max <= min ? min : min + (this.nextU32() % (max - min + 1)); }
+  }
+
+  function generatePattern(randomizeSeed = false) {
+    if (randomizeSeed) state.seed = ((Math.random() * 0xFFFFFFFF) >>> 0) || 1994;
+    const numBars = state.phraseBars;
+    if (state.cachedBars.length !== numBars) {
+      state.cachedBars = Array.from({ length: numBars }, () =>
+        Array.from({ length: 16 }, () => ({
+          active: false, interval: 0, durationSteps: 2, isTurnaround32nd: false, velocity: 110
+        }))
+      );
+    }
+
+    const rng = new Mulberry32(state.seed);
+    const workingBars = state.cachedBars.map(b => b.map(s => ({ ...s })));
+
+    for (let bar = 0; bar < numBars; bar++) {
+      const isFinalBar = (numBars > 1 && bar === numBars - 1);
+      const motifA = bar > 0 ? workingBars[0] : null;
+      let generated = generateBarRhythmAndPitch(bar, rng, motifA, isFinalBar);
+
+      if (state.lockRhythm && bar < state.cachedBars.length) {
+        for (let s = 0; s < 16; s++) {
+          generated[s].active = state.cachedBars[bar][s].active;
+          generated[s].durationSteps = state.cachedBars[bar][s].durationSteps;
+          generated[s].isTurnaround32nd = state.cachedBars[bar][s].isTurnaround32nd;
+        }
+        if (!state.lockPitch) applyPitchContour(generated, bar, rng, isFinalBar);
+      }
+
+      if (state.lockPitch && bar < state.cachedBars.length) {
+        const prevIntervals = state.cachedBars[bar].filter(s => s.active).map(s => s.interval);
+        if (prevIntervals.length > 0) {
+          let idx = 0;
+          for (let s = 0; s < 16; s++) {
+            if (generated[s].active) {
+              generated[s].interval = prevIntervals[idx % prevIntervals.length];
+              idx++;
+            }
+          }
+        }
+      }
+
+      if (state.lockPhrase && bar > 0) generated = workingBars[0].map(s => ({ ...s }));
+      workingBars[bar] = generated;
+    }
+
+    state.cachedBars = workingBars;
+    compileAndValidateMidi(workingBars);
+    updateLcdStatus();
+    drawPianoRoll();
+  }
+
+  function generateBarRhythmAndPitch(barIdx, rng, motifA, isTurnaroundBar) {
+    const bar = Array.from({ length: 16 }, () => ({
+      active: false, interval: 0, durationSteps: 2, isTurnaround32nd: false, velocity: 110
+    }));
+
+    let weights = new Array(16).fill(1.0);
+    let minNotes = 3, maxNotes = 6, minDur = 2, maxDur = 5, interaction = 'REINFORCE_KICK';
+
+    switch (state.archetype) {
+      case 0: weights = [1.4,0.1,0.8,0.9, 0.1,0.4,1.1,0.3, 0.9,0.2,1.2,0.7, 0.1,0.3,0.9,0.2]; minNotes = 3; maxNotes = 6; minDur = 2; maxDur = 6; interaction = 'COUNTERPOINT_POCKET'; break;
+      case 1: weights = [1.8,0.05,0.4,0.3, 0.05,0.1,1.5,0.1, 0.6,0.1,1.3,0.2, 0.05,0.1,0.4,0.1]; minNotes = 2; maxNotes = 5; minDur = 4; maxDur = 8; interaction = 'REINFORCE_KICK'; break;
+      case 2: weights = [0.15,0.1,1.6,0.5, 0.1,0.2,1.5,0.3, 0.4,0.2,1.6,0.4, 0.1,0.2,1.4,0.2]; minNotes = 2; maxNotes = 5; minDur = 2; maxDur = 5; interaction = 'DUB_AVOIDANCE'; break;
+      case 3: weights = [1.9,0.05,0.3,0.4, 0.1,0.2,1.2,0.2, 0.9,0.1,0.8,0.2, 0.1,0.1,0.5,0.1]; minNotes = 1; maxNotes = 4; minDur = 6; maxDur = 12; interaction = 'REINFORCE_KICK'; break;
+      case 4: weights = [1.8,0.2,0.5,0.9, 0.15,0.3,1.7,0.4, 0.6,0.3,1.1,0.8, 0.15,0.4,0.9,0.6]; minNotes = 3; maxNotes = 7; minDur = 1; maxDur = 4; interaction = 'REINFORCE_KICK'; break;
+      case 5: weights = [1.3,0.4,0.6,1.3, 0.2,0.7,1.2,0.8, 0.7,0.5,0.9,1.3, 0.2,0.6,1.2,1.1]; minNotes = 4; maxNotes = 8; minDur = 1; maxDur = 4; interaction = 'ANTICIPATE_TRANSIENT'; break;
+      case 6: weights = [1.5,0.7,1.2,0.8, 0.3,0.8,1.3,0.9, 1.2,0.7,1.3,0.8, 0.3,0.8,1.6,0.9]; minNotes = 6; maxNotes = 11; minDur = 1; maxDur = 2; interaction = 'COUNTERPOINT_POCKET'; break;
+      case 7: weights = [1.8,0.05,0.2,0.6, 0.05,0.1,1.3,0.15, 0.3,0.1,0.9,0.3, 0.05,0.1,0.4,0.2]; minNotes = 2; maxNotes = 4; minDur = 2; maxDur = 6; interaction = 'COUNTERPOINT_POCKET'; break;
+      case 8: weights = [1.6,0.2,0.9,0.8, 0.2,0.4,1.2,0.6, 1.1,0.3,1.2,0.7, 0.2,0.5,1.0,0.4]; minNotes = 4; maxNotes = 8; minDur = 2; maxDur = 5; interaction = 'COUNTERPOINT_POCKET'; break;
+      case 9: weights = [1.7,0.3,1.1,1.2, 0.2,0.5,1.5,0.6, 1.2,0.4,1.4,1.1, 0.2,0.5,1.3,0.7]; minNotes = 6; maxNotes = 10; minDur = 1; maxDur = 2; interaction = 'REINFORCE_KICK'; break;
+      case 10: weights = [1.5,0.2,1.0,1.1, 0.2,0.4,1.4,0.5, 1.0,0.3,1.2,1.0, 0.2,0.4,1.1,0.5]; minNotes = 4; maxNotes = 9; minDur = 1; maxDur = 2; interaction = 'COUNTERPOINT_POCKET'; break;
+      default: weights = [1.6,0.5,1.1,0.9, 0.2,0.6,1.3,0.7, 1.2,0.5,1.2,0.9, 0.2,0.6,1.3,0.7]; minNotes = 4; maxNotes = 10; minDur = 1; maxDur = 3; interaction = 'REINFORCE_KICK'; break;
+    }
+
+    const drums = DRUM_TEMPLATES[state.drumContext];
+    const aware = state.drumAwareness;
+
+    for (let s = 0; s < 16; s++) {
+      const hit = drums[s], nextHit = drums[(s + 1) % 16];
+      let mult = 1.0;
+      if (interaction === 'REINFORCE_KICK') { if (hit === 1) mult = 1.45; else if (hit === 2) mult = 0.25; }
+      else if (interaction === 'DUB_AVOIDANCE') { if (s === 0 || hit === 2) mult = 0.20; else if (s === 2 || s === 6 || s === 10 || s === 14) mult = 1.50; }
+      else if (interaction === 'COUNTERPOINT_POCKET') { if (hit === 2) mult = 0.15; else if (hit === 0) mult = 1.35; }
+      else if (interaction === 'ANTICIPATE_TRANSIENT') { if (nextHit === 1 || nextHit === 2) mult = 1.45; else if (hit === 2) mult = 0.25; }
+
+      const syncMult = (s % 2 === 1) ? (0.55 + 0.95 * state.syncopation) : (1.25 - 0.45 * state.syncopation);
+      weights[s] *= ((1.0 - aware) + aware * mult) * syncMult;
+    }
+
+    if (motifA && barIdx > 0) {
+      for (let s = 0; s < 16; s++) bar[s] = { ...motifA[s] };
+      const suppressEarly = (state.archetype === 7 && !isTurnaroundBar);
+      const strictJumpUp = (state.archetype === 9 && !isTurnaroundBar);
+      const mutProb = suppressEarly ? 0.0 : (strictJumpUp ? state.phraseVariation * 0.15 : (isTurnaroundBar ? Math.max(0.45, state.phraseVariation * 1.35) : state.phraseVariation * 0.55));
+
+      for (let s = 0; s < 16; s++) {
+        if (rng.nextFloat() < mutProb) {
+          if (bar[s].active && s !== 0) bar[s].active = false;
+          else if (!bar[s].active && weights[s] > 0.65 && rng.nextFloat() < state.noteDensity) bar[s].active = true;
+        }
+      }
+    } else {
+      const targetNotes = Math.round(minNotes + (maxNotes - minNotes) * state.noteDensity);
+      const pool = [...weights];
+      for (let n = 0; n < targetNotes; n++) {
+        const totalW = pool.reduce((a, b) => a + b, 0);
+        if (totalW <= 0.0001) break;
+        const pick = rng.nextFloat() * totalW;
+        let acc = 0, chosen = 0;
+        for (let s = 0; s < 16; s++) { acc += pool[s]; if (pick <= acc) { chosen = s; break; } }
+        bar[chosen].active = true;
+        pool[chosen] = 0;
+      }
+    }
+
+    if (isTurnaroundBar) {
+      bar[14].active = true;
+      if (state.archetype === 4 || state.archetype === 5 || state.noteDensity > 0.6) {
+        bar[15].active = true;
+        bar[15].isTurnaround32nd = true;
+      }
+    }
+
+    for (let s = 0; s < 16; s++) {
+      if (!bar[s].active) continue;
+      if (state.archetype === 10) bar[s].durationSteps = (rng.nextFloat() < 0.75) ? 1 : 2;
+      else if (state.archetype === 9) bar[s].durationSteps = (rng.nextFloat() < 0.70) ? 1 : 2;
+      else {
+        const lenScale = 0.4 + 1.2 * state.noteLength;
+        const rawDur = rng.nextInt(minDur, maxDur);
+        bar[s].durationSteps = Math.max(1, Math.min(12, Math.round(rawDur * lenScale)));
+      }
+      const accented = (s === 0 || s === 6 || s === 10 || s === 14);
+      bar[s].velocity = accented ? rng.nextInt(112, 127) : rng.nextInt(88, 108);
+    }
+
+    applyPitchContour(bar, barIdx, rng, isTurnaroundBar);
+    return bar;
+  }
+
+  function applyPitchContour(bar, barIdx, rng, isTurnaroundBar) {
+    const liquidCycle = [0, 8, 10, 7];
+    const harmonicAnchor = (state.archetype === 8) ? liquidCycle[barIdx % 4] : 0;
+    let prevInterval = harmonicAnchor, firstNote = true;
+
+    for (let s = 0; s < 16; s++) {
+      if (!bar[s].active) continue;
+      if (firstNote) { bar[s].interval = harmonicAnchor; prevInterval = harmonicAnchor; firstNote = false; continue; }
+      if (state.archetype === 11 && !isTurnaroundBar) { bar[s].interval = 0; continue; }
+
+      let candidates = [0, -2, -5, 3, 7, 10], probs = [0.35, 0.25, 0.20, 0.08, 0.07, 0.05];
+      switch (state.archetype) {
+        case 1: candidates = [0, 5, 7, -5, 12]; probs = [0.50, 0.15, 0.15, 0.10, 0.10]; break;
+        case 2: candidates = [0, 7, 10, -2, 3, 12]; probs = [0.35, 0.22, 0.18, 0.10, 0.08, 0.07]; break;
+        case 3: candidates = [0, 1, 3, 6, 7]; probs = [0.25, 0.30, 0.22, 0.15, 0.08]; break;
+        case 4: candidates = [0, 1, 6, 3, 7]; probs = [0.32, 0.32, 0.20, 0.08, 0.08]; break;
+        case 5: candidates = [0, 1, 3, 6, 7, 8, 12]; probs = [0.25, 0.24, 0.14, 0.16, 0.09, 0.06, 0.06]; break;
+        case 6: candidates = [0, 3, 5, 7, 10, 12]; probs = [0.36, 0.18, 0.14, 0.16, 0.10, 0.06]; break;
+        case 7: candidates = [0, 1, 3, 7]; probs = [0.45, 0.28, 0.17, 0.10]; break;
+        case 8: candidates = [harmonicAnchor, harmonicAnchor + 3, harmonicAnchor + 7, harmonicAnchor + 12, harmonicAnchor - 5]; probs = [0.32, 0.22, 0.24, 0.14, 0.08]; break;
+        case 9: candidates = [0, 12, 13, 7, 3, 1]; probs = [0.28, 0.30, 0.20, 0.10, 0.06, 0.06]; break;
+        case 10: candidates = [0, 3, 7, 10, 12, 1]; probs = [0.32, 0.20, 0.20, 0.12, 0.10, 0.06]; break;
+        case 11: candidates = [0, 7, 10, 12]; probs = [0.45, 0.25, 0.18, 0.12]; break;
+      }
+
+      for (let i = 0; i < candidates.length; i++) {
+        const iv = candidates[i], rel = iv - harmonicAnchor;
+        if (rel === 1 || rel === 6 || rel === 13) probs[i] *= (0.35 + 1.45 * state.chromaticism);
+        if (Math.abs(rel) >= 12) probs[i] *= (0.25 + 1.65 * state.octaveMovement);
+        if (iv === prevInterval && iv !== harmonicAnchor) probs[i] *= 0.45;
+      }
+
+      if (isTurnaroundBar && s >= 14) {
+        bar[s].interval = harmonicAnchor + ((rng.nextFloat() < 0.55) ? 7 : 10);
+      } else {
+        const sum = probs.reduce((a, b) => a + b, 0);
+        const r = rng.nextFloat() * sum;
+        let acc = 0, chosen = harmonicAnchor;
+        for (let i = 0; i < candidates.length; i++) { acc += probs[i]; if (r <= acc) { chosen = candidates[i]; break; } }
+        bar[s].interval = chosen;
+      }
+      prevInterval = bar[s].interval;
+    }
+  }
+
+  function compileAndValidateMidi(bars) {
+    const notes = [];
+    const swingOffsetTicks = Math.round((state.swing - 0.50) * 2.0 * TICKS_PER_STEP);
+    const phraseEndTick = bars.length * TICKS_PER_BAR;
+
+    for (let b = 0; b < bars.length; b++) {
+      const barStartTick = b * TICKS_PER_BAR;
+      for (let s = 0; s < 16; s++) {
+        const slot = bars[b][s];
+        if (!slot.active) continue;
+        let onsetTick = barStartTick + s * TICKS_PER_STEP;
+        if (s % 2 === 1) onsetTick += swingOffsetTicks;
+        let durTicks = slot.isTurnaround32nd ? (TICKS_PER_STEP / 2) : (slot.durationSteps * TICKS_PER_STEP);
+        if (onsetTick + durTicks > phraseEndTick) durTicks = Math.max(24, phraseEndTick - onsetTick - 12);
+        notes.push({
+          midiNote: Math.max(12, Math.min(84, state.rootMidiNote + slot.interval)),
+          velocity: Math.max(1, Math.min(127, slot.velocity)),
+          startTick: onsetTick,
+          durationTicks: Math.max(24, durTicks),
+          barIndex: b,
+          stepIndex: s
+        });
+      }
+    }
+
+    const allowOverlap = (state.archetype === 3);
+    for (let i = 0; i + 1 < notes.length; i++) {
+      if (!allowOverlap) {
+        const maxAllowedEnd = notes[i + 1].startTick - 12;
+        if (notes[i].startTick + notes[i].durationTicks > maxAllowedEnd) {
+          notes[i].durationTicks = Math.max(12, maxAllowedEnd - notes[i].startTick);
+        }
+      }
+    }
+    state.pattern = notes;
+  }
+
+  let audioCtx = null, activeBassVoice = null, sampleBuffer = null, sampleIsFallbackSine = true;
+  let sampleName = 'INTERNAL PURE SUB (SINE)', detectedKeyLabel = 'F Min (F1)';
+
+  function ensureAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      buildFallbackSineBuffer();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function buildFallbackSineBuffer() {
+    if (!audioCtx) return;
+    const sr = audioCtx.sampleRate, rootMidi = 29;
+    const freq = 440.0 * Math.pow(2.0, (rootMidi - 69) / 12.0);
+    const len = Math.floor(sr * 4.0);
+    const buf = audioCtx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const phase = 2 * Math.PI * freq * (i / sr);
+      data[i] = 0.90 * Math.sin(phase) + 0.035 * Math.sin(2 * phase);
+    }
+    sampleBuffer = buf; sampleIsFallbackSine = true;
+    sampleName = 'INTERNAL PURE SUB (SINE)'; detectedKeyLabel = 'F Min (F1)';
+    updateSampleUI();
+  }
+
+  function detectMusicalKeyFromBuffer(audioBuffer, fileName) {
+    const sr = audioBuffer.sampleRate, ch = audioBuffer.getChannelData(0);
+    const start = Math.min(Math.floor(ch.length / 4), Math.floor(sr * 0.025));
+    const win = Math.min(ch.length - start, Math.floor(sr * 0.100));
+    let estMidi = 29, pitchConf = 0;
+
+    if (win >= 512) {
+      const minLag = Math.floor(sr / 160.0), maxLag = Math.min(Math.floor(win / 2), Math.floor(sr / 27.5));
+      let bestLag = minLag, bestCorr = -1;
+      for (let lag = minLag; lag <= maxLag; lag++) {
+        let corr = 0, energy = 0;
+        for (let i = 0; i < win - lag; i += 2) { corr += ch[start + i] * ch[start + i + lag]; energy += ch[start + i] * ch[start + i]; }
+        const norm = energy > 1e-9 ? corr / energy : 0;
+        if (norm > bestCorr) { bestCorr = norm; bestLag = lag; }
+      }
+      pitchConf = Math.max(0, Math.min(1, bestCorr));
+      if (bestCorr >= 0.45) {
+        const hz = sr / bestLag;
+        estMidi = Math.max(24, Math.min(47, Math.round(69 + 12 * Math.log2(hz / 440.0))));
+      }
+    }
+
+    const stem = fileName.replace(/\.[^/.]+$/, '');
+    const keyRegex = /(?:^|[_\-\s.\(\)\[\]])([A-Ga-g])(#|b)?\s*(m|min|minor|maj|major)(?=$|[_\-\s.\(\)\[\]])/i;
+    const match = stem.match(keyRegex);
+    if (match) {
+      const baseMap = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+      let pc = baseMap[match[1].toUpperCase()];
+      if (match[2] === '#') pc = (pc + 1) % 12;
+      else if (match[2] && match[2].toLowerCase() === 'b') pc = (pc + 11) % 12;
+      const isMinor = match[3].toLowerCase().startsWith('m') && !match[3].toLowerCase().startsWith('maj');
+      const rootMidi = (pitchConf > 0.65 && (estMidi % 12) === pc) ? estMidi : (24 + pc);
+      const oct = Math.floor(rootMidi / 12) - 1;
+      return { rootMidi, label: `${NOTE_NAMES[pc]} ${isMinor ? 'Min' : 'Maj'} (${NOTE_NAMES[rootMidi % 12]}${oct})` };
+    }
+
+    const chroma = new Array(12).fill(0);
+    const limit = Math.min(ch.length, Math.floor(sr * 4.0)), frameSize = 2048, bins = [];
+    for (let m = 24; m <= 71; m++) {
+      const freq = 440 * Math.pow(2, (m - 69) / 12);
+      if (freq < sr * 0.45) bins.push({ pc: m % 12, coeff: 2 * Math.cos(2 * Math.PI * freq / sr), w: m <= 47 ? 1.45 : 0.85 });
+    }
+    for (let offset = 0; offset + frameSize <= limit; offset += 2048) {
+      for (const b of bins) {
+        let s1 = 0, s2 = 0;
+        for (let n = 0; n < frameSize; n++) { const s0 = ch[offset + n] + b.coeff * s1 - s2; s2 = s1; s1 = s0; }
+        chroma[b.pc] += Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - b.coeff * s1 * s2)) * b.w;
+      }
+    }
+
+    const minorProf = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+    const majorProf = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+    let bestTonic = 5, bestIsMinor = true, bestScore = -999;
+    for (let t = 0; t < 12; t++) {
+      let mScore = 0.03, majScore = 0;
+      for (let i = 0; i < 12; i++) { mScore += chroma[(t + i) % 12] * minorProf[i]; majScore += chroma[(t + i) % 12] * majorProf[i]; }
+      if (mScore > bestScore) { bestScore = mScore; bestTonic = t; bestIsMinor = true; }
+      if (majScore > bestScore) { bestScore = majScore; bestTonic = t; bestIsMinor = false; }
+    }
+
+    let finalPc = bestTonic, finalRoot = 24 + bestTonic;
+    if (pitchConf >= 0.72) { finalPc = estMidi % 12; finalRoot = estMidi; bestIsMinor = true; }
+    else if ((estMidi % 12) === bestTonic) { finalRoot = estMidi; }
+    const oct = Math.floor(finalRoot / 12) - 1;
+    return { rootMidi: finalRoot, label: `${NOTE_NAMES[finalPc]} ${bestIsMinor ? 'Min' : 'Maj'} (${NOTE_NAMES[finalRoot % 12]}${oct})` };
+  }
+
+  async function handleSampleFile(file) {
+    if (!file) return;
+    ensureAudioContext();
+    try {
+      const decoded = await audioCtx.decodeAudioData(await file.arrayBuffer());
+      sampleBuffer = decoded; sampleIsFallbackSine = false; sampleName = file.name;
+      const keyInfo = detectMusicalKeyFromBuffer(decoded, file.name);
+      detectedKeyLabel = keyInfo.label; state.rootMidiNote = keyInfo.rootMidi;
+      document.getElementById('rootNoteSelect').value = String(keyInfo.rootMidi);
+      updateSampleUI(); generatePattern(false);
+    } catch (err) { console.error(err); }
+  }
+
+  function triggerBassNote(midiNote, velocityNorm, startTime, durationSec) {
+    ensureAudioContext();
+    if (!sampleBuffer) return;
+    const now = Math.max(audioCtx.currentTime, startTime);
+    if (activeBassVoice) {
+      try {
+        const prevGain = activeBassVoice.gainNode.gain;
+        prevGain.cancelScheduledValues(now);
+        prevGain.setValueAtTime(prevGain.value, now);
+        prevGain.linearRampToValueAtTime(0.0001, now + 0.006);
+        activeBassVoice.srcNode.stop(now + 0.008);
+      } catch (_) {}
+    }
+
+    const src = audioCtx.createBufferSource();
+    src.buffer = sampleBuffer; src.loop = sampleIsFallbackSine;
+    src.playbackRate.value = Math.pow(2.0, (midiNote - state.rootMidiNote) / 12.0);
+
+    const envGain = audioCtx.createGain();
+    const peakGain = Math.max(0.05, velocityNorm * 0.85);
+    const { attack, decay, sustain, release } = state.adsr;
+    const sustainGain = Math.max(0.0001, peakGain * sustain);
+    const noteOffTime = now + Math.max(0.02, durationSec);
+
+    envGain.gain.setValueAtTime(0.0001, now);
+    envGain.gain.linearRampToValueAtTime(peakGain, now + attack);
+    envGain.gain.exponentialRampToValueAtTime(sustainGain, now + attack + decay);
+    envGain.gain.setValueAtTime(sustainGain, noteOffTime);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, noteOffTime + release);
+
+    src.connect(envGain); envGain.connect(audioCtx.destination);
+    src.start(now); src.stop(noteOffTime + release + 0.02);
+    activeBassVoice = { srcNode: src, gainNode: envGain };
+  }
+
+  function triggerDrumHit(hitType, time) {
+    if (!state.breakbeatEnabled || !audioCtx) return;
+    if (hitType === 1) {
+      const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.setValueAtTime(145, time); osc.frequency.exponentialRampToValueAtTime(48, time + 0.085);
+      g.gain.setValueAtTime(0.42, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+      osc.connect(g); g.connect(audioCtx.destination); osc.start(time); osc.stop(time + 0.17);
+    } else if (hitType === 2 || hitType === 3) {
+      const isGhost = (hitType === 3);
+      const bufSize = Math.floor(audioCtx.sampleRate * (isGhost ? 0.05 : 0.14));
+      const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+      const out = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) out[i] = Math.random() * 2 - 1;
+      const noise = audioCtx.createBufferSource(); noise.buffer = noiseBuf;
+      const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass';
+      filter.frequency.value = isGhost ? 2600 : 1850; filter.Q.value = 1.1;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(isGhost ? 0.07 : 0.24, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + (isGhost ? 0.045 : 0.13));
+      noise.connect(filter); filter.connect(g); g.connect(audioCtx.destination); noise.start(time);
+    }
+  }
+
+  let schedulerTimer = null, currentStepTotal = 0, nextStepTime = 0, playStartTime = 0;
+
+  function togglePlay() {
+    ensureAudioContext();
+    state.isPlaying = !state.isPlaying;
+    const btn = document.getElementById('btnPlay'), lbl = document.getElementById('playLabel');
+    if (state.isPlaying) {
+      btn.classList.add('led-on-amber'); lbl.textContent = 'STOP';
+      currentStepTotal = 0; playStartTime = audioCtx.currentTime + 0.03; nextStepTime = playStartTime;
+      schedulerTimer = setInterval(schedulerTick, 20);
+    } else {
+      btn.classList.remove('led-on-amber'); lbl.textContent = 'PLAY';
+      clearInterval(schedulerTimer); schedulerTimer = null;
+      if (activeBassVoice) { try { activeBassVoice.srcNode.stop(); } catch (_) {} }
+      drawPianoRoll();
+    }
+  }
+
+  function schedulerTick() {
+    if (!state.isPlaying || !audioCtx) return;
+    const lookahead = 0.10, secPerBeat = 60.0 / state.bpm, secPer16th = secPerBeat / 4.0, totalSteps = state.phraseBars * 16;
+    while (nextStepTime < audioCtx.currentTime + lookahead) {
+      const phraseStep = currentStepTotal % totalSteps;
+      const barIdx = Math.floor(phraseStep / 16), stepInBar = phraseStep % 16;
+      const swingSec = (stepInBar % 2 === 1) ? ((state.swing - 0.50) * 2.0 * secPer16th) : 0;
+      const stepAudioTime = nextStepTime + swingSec;
+
+      const drumHit = DRUM_TEMPLATES[state.drumContext][stepInBar];
+      if (drumHit !== 0) triggerDrumHit(drumHit, stepAudioTime);
+
+      for (const n of state.pattern) {
+        if (n.barIndex === barIdx && n.stepIndex === stepInBar) {
+          triggerBassNote(n.midiNote, n.velocity / 127.0, stepAudioTime, (n.durationTicks / PPQN) * secPerBeat);
+        }
+      }
+      nextStepTime += secPer16th; currentStepTotal++;
+    }
+  }
+
+  function exportMidiFile() {
+    const writeVarLen = (val) => {
+      let buffer = [val & 0x7F];
+      while ((val >>= 7) > 0) buffer.unshift((val & 0x7F) | 0x80);
+      return buffer;
+    };
+    const events = [], usPerBeat = Math.round(60000000 / state.bpm);
+    events.push({ tick: 0, bytes: [0xFF, 0x51, 0x03, (usPerBeat >> 16) & 0xFF, (usPerBeat >> 8) & 0xFF, usPerBeat & 0xFF] });
+    events.push({ tick: 0, bytes: [0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08] });
+    for (const n of state.pattern) {
+      events.push({ tick: n.startTick, bytes: [0x90, n.midiNote & 0x7F, n.velocity & 0x7F] });
+      events.push({ tick: n.startTick + n.durationTicks, bytes: [0x80, n.midiNote & 0x7F, 0x00] });
+    }
+    events.push({ tick: state.phraseBars * TICKS_PER_BAR, bytes: [0xFF, 0x2F, 0x00] });
+    events.sort((a, b) => a.tick - b.tick);
+
+    const trackBytes = [];
+    let lastTick = 0;
+    for (const ev of events) {
+      const delta = Math.max(0, ev.tick - lastTick); lastTick = ev.tick;
+      trackBytes.push(...writeVarLen(delta), ...ev.bytes);
+    }
+
+    const header = [0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, (PPQN >> 8) & 0xFF, PPQN & 0xFF];
+    const trkLen = trackBytes.length;
+    const trackHeader = [0x4D, 0x54, 0x72, 0x6B, (trkLen >> 24) & 0xFF, (trkLen >> 16) & 0xFF, (trkLen >> 8) & 0xFF, trkLen & 0xFF];
+    const blob = new Blob([new Uint8Array([...header, ...trackHeader, ...trackBytes])], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BLEEK_${ARCHETYPE_NAMES[state.archetype].replace(/[^A-Za-z0-9]/g, '_')}_${state.bpm}BPM_S${state.seed}.mid`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  function updateSampleUI() {
+    document.getElementById('sampleNameDisplay').textContent = sampleName;
+    document.getElementById('detectedKeyBadge').textContent = `KEY: ${detectedKeyLabel}`;
+    drawWaveform();
+  }
+
+  function drawWaveform() {
+    const canvas = document.getElementById('waveformCanvas'), rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width * window.devicePixelRatio; canvas.height = rect.height * window.devicePixelRatio;
+    const ctx = canvas.getContext('2d'); ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const w = rect.width, h = rect.height; ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(38, 247, 154, 0.2)'; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    if (!sampleBuffer) return;
+    const data = sampleBuffer.getChannelData(0), step = Math.max(1, Math.floor(data.length / w));
+    ctx.fillStyle = sampleIsFallbackSine ? '#26f79a' : '#ff9e1b';
+    for (let x = 0; x < w; x++) {
+      let peak = 0; const base = x * step;
+      for (let i = 0; i < step && (base + i) < data.length; i += Math.max(1, Math.floor(step / 8))) {
+        const v = Math.abs(data[base + i]); if (v > peak) peak = v;
+      }
+      const barH = Math.max(2, peak * (h * 0.85));
+      ctx.fillRect(x, (h - barH) / 2, 1.5, barH);
+    }
+  }
+
+  function drawPianoRoll() {
+    const canvas = document.getElementById('pianoRollCanvas'), rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width * window.devicePixelRatio; canvas.height = rect.height * window.devicePixelRatio;
+    const ctx = canvas.getContext('2d'); ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const w = rect.width, h = rect.height; ctx.clearRect(0, 0, w, h);
+
+    const padX = 10, padY = 8, drumH = 18, gridX = padX, gridY = padY + drumH + 4;
+    const gridW = w - padX * 2, gridH = h - gridY - padY, stepW = gridW / 16;
+    const drums = DRUM_TEMPLATES[state.drumContext];
+    ctx.font = 'bold 10px "Share Tech Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+    for (let s = 0; s < 16; s++) {
+      const sx = gridX + s * stepW;
+      ctx.strokeStyle = (s % 4 === 0) ? 'rgba(38, 247, 154, 0.25)' : 'rgba(38, 247, 154, 0.08)';
+      ctx.beginPath(); ctx.moveTo(sx, gridY); ctx.lineTo(sx, gridY + gridH); ctx.stroke();
+      if (drums[s] === 1) { ctx.fillStyle = '#ff9e1b'; ctx.fillRect(sx + 2, padY, stepW - 4, drumH - 2); ctx.fillStyle = '#090a0d'; ctx.fillText('K', sx + stepW / 2, padY + (drumH - 2) / 2); }
+      else if (drums[s] === 2) { ctx.fillStyle = '#26f79a'; ctx.fillRect(sx + 2, padY, stepW - 4, drumH - 2); ctx.fillStyle = '#090a0d'; ctx.fillText('S', sx + stepW / 2, padY + (drumH - 2) / 2); }
+    }
+
+    const minNote = state.rootMidiNote - 7, maxNote = state.rootMidiNote + 15, rowH = gridH / (maxNote - minNote + 1);
+    const rootY = gridY + gridH - (state.rootMidiNote - minNote + 1) * rowH;
+    ctx.fillStyle = 'rgba(38, 247, 154, 0.12)'; ctx.fillRect(gridX, rootY, gridW, rowH);
+
+    const barStartTick = state.selectedBar * TICKS_PER_BAR, barEndTick = barStartTick + TICKS_PER_BAR;
+    for (const n of state.pattern) {
+      if (n.startTick >= barEndTick || (n.startTick + n.durationTicks) <= barStartTick) continue;
+      const cStart = Math.max(n.startTick, barStartTick) - barStartTick, cEnd = Math.min(n.startTick + n.durationTicks, barEndTick) - barStartTick;
+      const nx = gridX + (cStart / TICKS_PER_BAR) * gridW, nw = Math.max(4, ((cEnd - cStart) / TICKS_PER_BAR) * gridW);
+      const pitch = Math.max(minNote, Math.min(maxNote, n.midiNote)), ny = gridY + gridH - (pitch - minNote + 1) * rowH;
+      ctx.fillStyle = '#26f79a'; ctx.fillRect(nx, ny + 1, nw, Math.max(4, rowH - 2));
+      if (nw > 22) {
+        ctx.fillStyle = '#061b14'; ctx.font = 'bold 9px "Share Tech Mono", monospace';
+        ctx.fillText(`${NOTE_NAMES[n.midiNote % 12]}${Math.floor(n.midiNote / 12) - 1}`, nx + nw / 2, ny + rowH / 2);
+      }
+    }
+
+    if (state.isPlaying && audioCtx) {
+      const elapsed = Math.max(0, audioCtx.currentTime - playStartTime), secPerBar = (60.0 / state.bpm) * 4.0;
+      const totalBarPos = (elapsed / secPerBar) % state.phraseBars, activeBar = Math.floor(totalBarPos);
+      if (activeBar !== state.selectedBar) { state.selectedBar = activeBar; refreshBarTabs(); drawPianoRoll(); return; }
+      const frac = totalBarPos - activeBar, px = gridX + frac * gridW;
+      const trailGrad = ctx.createLinearGradient(Math.max(gridX, px - 36), 0, px, 0);
+      trailGrad.addColorStop(0, 'rgba(255, 158, 27, 0.0)'); trailGrad.addColorStop(1, 'rgba(255, 158, 27, 0.16)');
+      ctx.fillStyle = trailGrad; ctx.fillRect(Math.max(gridX, px - 36), gridY, Math.min(36, px - gridX), gridH);
+      ctx.strokeStyle = '#ff9e1b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, gridY); ctx.lineTo(px, gridY + gridH); ctx.stroke(); ctx.lineWidth = 1;
+    }
+  }
+
+  function updateLcdStatus() { document.getElementById('lcdStatusReadout').textContent = `${state.bpm.toFixed(1)} BPM | S:${state.seed}`; }
+
+  function initUI() {
+    const rootSel = document.getElementById('rootNoteSelect');
+    for (let m = 24; m <= 47; m++) {
+      const opt = document.createElement('option'); opt.value = String(m);
+      opt.textContent = `ROOT: ${NOTE_NAMES[m % 12]}${Math.floor(m / 12) - 1}`;
+      if (m === 29) opt.selected = true;
+      rootSel.appendChild(opt);
+    }
+    rootSel.addEventListener('change', (e) => { state.rootMidiNote = parseInt(e.target.value, 10); generatePattern(false); });
+
+    const tabsContainer = document.getElementById('barTabsContainer');
+    for (let i = 0; i < 8; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'hw-btn text-[10px] py-1 px-2.5' + (i === 0 ? ' led-on-amber' : '');
+      btn.innerHTML = `<span class="led-lens"></span><span>BAR ${i + 1}</span>`;
+      btn.addEventListener('click', () => { if (i < state.phraseBars) { state.selectedBar = i; refreshBarTabs(); drawPianoRoll(); } });
+      tabsContainer.appendChild(btn);
+    }
+    refreshBarTabs();
+
+    [
+      { id: 'knobAttack', valId: 'valAttack', min: 0.001, max: 0.500, key: 'attack', fmt: v => `${Math.round(v * 1000)} ms` },
+      { id: 'knobDecay', valId: 'valDecay', min: 0.010, max: 3.000, key: 'decay', fmt: v => `${Math.round(v * 1000)} ms` },
+      { id: 'knobSustain', valId: 'valSustain', min: 0.000, max: 1.000, key: 'sustain', fmt: v => `${Math.round(v * 100)}%` },
+      { id: 'knobRelease', valId: 'valRelease', min: 0.005, max: 2.000, key: 'release', fmt: v => `${Math.round(v * 1000)} ms` }
+    ].forEach(cfg => {
+      const el = document.getElementById(cfg.id), pointer = el.querySelector('.hw-knob-pointer'), valEl = document.getElementById(cfg.valId);
+      const updateVisual = () => {
+        const norm = (state.adsr[cfg.key] - cfg.min) / (cfg.max - cfg.min);
+        pointer.style.transform = `translateX(-50%) rotate(${-135 + norm * 270}deg)`;
+        pointer.style.transformOrigin = '50% 22px';
+        valEl.textContent = cfg.fmt(state.adsr[cfg.key]);
+      };
+      updateVisual();
+      let dragging = false, startY = 0, startVal = 0;
+      const onStart = (y) => { dragging = true; startY = y; startVal = state.adsr[cfg.key]; };
+      const onMove = (y) => { if (!dragging) return; state.adsr[cfg.key] = Math.max(cfg.min, Math.min(cfg.max, startVal + ((startY - y) / 130) * (cfg.max - cfg.min))); updateVisual(); };
+      el.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientY); });
+      window.addEventListener('mousemove', e => onMove(e.clientY));
+      window.addEventListener('mouseup', () => { dragging = false; });
+      el.addEventListener('touchstart', e => onStart(e.touches[0].clientY), { passive: true });
+      window.addEventListener('touchmove', e => { if (dragging) onMove(e.touches[0].clientY); }, { passive: true });
+      window.addEventListener('touchend', () => { dragging = false; });
+    });
+
+    document.getElementById('btnPlay').addEventListener('click', togglePlay);
+    document.getElementById('btnBreakToggle').addEventListener('click', (e) => { state.breakbeatEnabled = !state.breakbeatEnabled; e.currentTarget.classList.toggle('led-on-green', state.breakbeatEnabled); });
+    document.getElementById('btnGenerate').addEventListener('click', () => generatePattern(true));
+    document.getElementById('btnExportMid').addEventListener('click', exportMidiFile);
+
+    const dropZone = document.getElementById('sampleDropZone'), fileInput = document.getElementById('sampleFileInput');
+    dropZone.addEventListener('click', () => fileInput.click());
+    document.getElementById('btnLoadSample').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleSampleFile(e.target.files[0]));
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drop-active'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-active'));
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drop-active'); if (e.dataTransfer.files.length > 0) handleSampleFile(e.dataTransfer.files[0]); });
+
+    document.getElementById('btnPureSub').addEventListener('click', () => { ensureAudioContext(); buildFallbackSineBuffer(); state.rootMidiNote = 29; rootSel.value = '29'; generatePattern(false); });
+    document.getElementById('btnAuditionNote').addEventListener('click', () => triggerBassNote(state.rootMidiNote, 0.9, 0, 0.45));
+
+    document.getElementById('eraSelect').addEventListener('change', (e) => {
+      const cfg = ERA_CONFIGS[parseInt(e.target.value, 10)];
+      state.bpm = cfg.bpm; document.getElementById('bpmInput').value = String(cfg.bpm);
+      if (!state.lockGroove) { state.swing = cfg.swing; document.getElementById('slSwing').value = String(cfg.swing); document.getElementById('lblSwing').textContent = `${(cfg.swing * 100).toFixed(1)}%`; }
+      state.drumContext = cfg.drum; document.getElementById('drumContextSelect').value = String(cfg.drum);
+      state.archetype = cfg.arch; document.getElementById('archetypeSelect').value = String(cfg.arch);
+      generatePattern(false);
+    });
+    document.getElementById('archetypeSelect').addEventListener('change', (e) => { state.archetype = parseInt(e.target.value, 10); generatePattern(false); });
+    document.getElementById('drumContextSelect').addEventListener('change', (e) => { state.drumContext = parseInt(e.target.value, 10); generatePattern(false); });
+    document.getElementById('phraseSelect').addEventListener('change', (e) => { state.phraseBars = parseInt(e.target.value, 10); if (state.selectedBar >= state.phraseBars) state.selectedBar = 0; refreshBarTabs(); generatePattern(false); });
+    document.getElementById('bpmInput').addEventListener('change', (e) => { state.bpm = Math.max(120, Math.min(200, parseFloat(e.target.value) || 170)); updateLcdStatus(); });
+
+    ['lockRhythm', 'lockPitch', 'lockPhrase', 'lockGroove'].forEach(id => {
+      const btn = document.getElementById(id);
+      btn.addEventListener('click', () => { state[id] = !state[id]; btn.classList.toggle('led-on-amber', state[id]); });
+    });
+
+    [
+      ['slDensity', 'lblDensity', 'noteDensity', false], ['slSyncopation', 'lblSyncopation', 'syncopation', false],
+      ['slVariation', 'lblVariation', 'phraseVariation', false], ['slLength', 'lblLength', 'noteLength', false],
+      ['slChromatic', 'lblChromatic', 'chromaticism', false], ['slOctave', 'lblOctave', 'octaveMovement', false],
+      ['slDrumAware', 'lblDrumAware', 'drumAwareness', false], ['slSwing', 'lblSwing', 'swing', true]
+    ].forEach(([slId, lblId, prop, isSwing]) => {
+      const sl = document.getElementById(slId), lbl = document.getElementById(lblId);
+      sl.addEventListener('input', () => {
+        const val = parseFloat(sl.value); state[prop] = val;
+        lbl.textContent = isSwing ? `${(val * 100).toFixed(1)}%` : `${Math.round(val * 100)}%`;
+        generatePattern(false);
+      });
+    });
+
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') { e.preventDefault(); togglePlay(); } });
+    window.addEventListener('resize', () => { drawWaveform(); drawPianoRoll(); });
+    const renderLoop = () => { if (state.isPlaying) drawPianoRoll(); requestAnimationFrame(renderLoop); };
+    requestAnimationFrame(renderLoop);
+
+    generatePattern(false);
+    drawDefaultSinePreview();
+  }
+
+  function drawDefaultSinePreview() {
+    const canvas = document.getElementById('waveformCanvas'), rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width * window.devicePixelRatio; canvas.height = rect.height * window.devicePixelRatio;
+    const ctx = canvas.getContext('2d'); ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const w = rect.width, h = rect.height;
+    ctx.strokeStyle = 'rgba(38, 247, 154, 0.2)'; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    ctx.strokeStyle = '#26f79a'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let x = 0; x < w; x++) { const y = h / 2 - Math.sin((x / w) * Math.PI * 10) * (h * 0.36); if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+
+  function refreshBarTabs() {
+    document.querySelectorAll('#barTabsContainer button').forEach((btn, idx) => {
+      const enabled = idx < state.phraseBars;
+      btn.style.opacity = enabled ? '1' : '0.35';
+      btn.style.pointerEvents = enabled ? 'auto' : 'none';
+      btn.classList.toggle('led-on-amber', idx === state.selectedBar && enabled);
+    });
+  }
+
+  window.addEventListener('DOMContentLoaded', initUI);
+})();
+</script>
+</body>
+</html>
