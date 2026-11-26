@@ -67,6 +67,27 @@ private:
         float stealGain = 1.0f;
         float stealStep = 0.0f;
         bool isFadingOutForSteal = false;
+
+        Voice() = default;
+        Voice(const Voice&) = delete;
+
+        // JUCE interpolators are non-copyable: copy playback state, reset interpolation history
+        Voice& operator=(const Voice& other) {
+            if (this != &other) {
+                active = other.active;
+                midiNote = other.midiNote;
+                velocity = other.velocity;
+                sourcePosition = other.sourcePosition;
+                pitchRatio = other.pitchRatio;
+                adsr = other.adsr;
+                interpL.reset();
+                interpR.reset();
+                stealGain = other.stealGain;
+                stealStep = other.stealStep;
+                isFadingOutForSteal = other.isFadingOutForSteal;
+            }
+            return *this;
+        }
     };
 
     double hostSampleRate_ = 44100.0;
