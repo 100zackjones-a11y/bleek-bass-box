@@ -354,9 +354,12 @@ void LcdPianoRoll::paint(juce::Graphics& g) {
     BleekLookAndFeel::drawHardwareBezel(g, b, true);
 
     auto inner = b.reduced(10.0f);
+    const float keyboardW = 38.0f;
     const float drumStripH = 18.0f;
-    auto drumStrip = inner.removeFromTop(drumStripH);
+    auto drumStrip = inner.removeFromTop(drumStripH).withTrimmedLeft(keyboardW + 4.0f);
     auto gridArea = inner.withTrimmedTop(4.0f);
+    auto keysArea = gridArea.removeFromLeft(keyboardW);
+    gridArea.removeFromLeft(4.0f);
 
     const float stepW = gridArea.getWidth() / 16.0f;
 
@@ -403,6 +406,42 @@ void LcdPianoRoll::paint(juce::Graphics& g) {
     g.setColour(Palette::kLcdPhosphor.withAlpha(0.12f));
     g.fillRect(gridArea.getX(), rootY, gridArea.getWidth(), rowH);
 
+    // Side piano keyboard (one key per pitch row), sounding note lit amber
+    {
+        static const bool kIsBlack[12] = { false, true, false, true, false, false, true, false, true, false, true, false };
+        static const char* kNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        const int soundingNote = processor_.getSoundingNote();
+
+        for (int note = minNote; note <= maxNote; ++note) {
+            const float ky = gridArea.getBottom() - (note - minNote + 1) * rowH;
+            auto key = juce::Rectangle<float>(keysArea.getX(), ky, keysArea.getWidth(), rowH).reduced(0.0f, 0.5f);
+            const bool black = kIsBlack[note % 12];
+
+            juce::Colour fill = black ? juce::Colour(0xFF14181C) : juce::Colour(0xFFD9DED6);
+            if (note == soundingNote)
+                fill = Palette::kAmberLed;
+            else if (note == rootMidi)
+                fill = black ? juce::Colour(0xFF1F4A33) : juce::Colour(0xFFB8E6C9);
+
+            g.setColour(fill);
+            g.fillRect(black ? key.withTrimmedRight(keysArea.getWidth() * 0.35f) : key);
+            g.setColour(juce::Colour(0xFF0B0E10));
+            g.drawRect(key, 0.5f);
+
+            if (note % 12 == 0 || note == rootMidi || note == soundingNote) {
+                g.setColour(note == soundingNote || !black ? juce::Colour(0xFF101418) : Palette::kLcdPhosphor);
+                g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
+                                            juce::jlimit(7.0f, 10.0f, rowH - 1.0f), juce::Font::bold));
+                g.drawText(juce::String(kNames[note % 12]) + juce::String(note / 12 - 1),
+                           key.withTrimmedLeft(2.0f), juce::Justification::centredLeft, false);
+            }
+
+            // faint row line across the grid
+            g.setColour(Palette::kLcdPhosphor.withAlpha(black ? 0.05f : 0.025f));
+            g.fillRect(gridArea.getX(), ky, gridArea.getWidth(), rowH);
+        }
+    }
+
     const auto allNotes = processor_.getPatternSnapshot();
     const int barStartTick = selectedBar_ * BassEngine::kTicksPerBar;
     const int barEndTick = barStartTick + BassEngine::kTicksPerBar;
@@ -419,7 +458,13 @@ void LcdPianoRoll::paint(juce::Graphics& g) {
         const int clampedPitch = std::clamp(n.midiNote, minNote, maxNote);
         const float ny = gridArea.getBottom() - (clampedPitch - minNote + 1) * rowH;
 
-        g.setColour(Palette::kLcdPhosphor);
+        // Note under the playhead glows amber
+        bool underPlayhead = false;
+        if (processor_.isHostPlaying()) {
+            const double tick = processor_.getPlayheadBarPosition() * BassEngine::kTicksPerBar;
+            underPlayhead = tick >= n.startTick && tick < n.startTick + n.durationTicks;
+        }
+        g.setColour(underPlayhead ? Palette::kAmberLed : Palette::kLcdPhosphor);
         g.fillRect(nx, ny + 1.0f, nw, std::max(4.0f, rowH - 2.0f));
     }
 
@@ -436,8 +481,10 @@ void LcdPianoRoll::paint(juce::Graphics& g) {
         if (currentPlayingBar == selectedBar_) {
             const float frac = static_cast<float>(barPos - std::floor(barPos));
             const float px = gridArea.getX() + frac * gridArea.getWidth();
+            g.setColour(Palette::kAmberLed.withAlpha(0.18f));
+            g.fillRect(px - 5.0f, drumStrip.getY(), 10.0f, gridArea.getBottom() - drumStrip.getY());
             g.setColour(Palette::kAmberLed);
-            g.drawLine(px, gridArea.getY(), px, gridArea.getBottom(), 2.0f);
+            g.drawLine(px, drumStrip.getY(), px, gridArea.getBottom(), 2.0f);
         }
     }
 }
@@ -618,10 +665,17 @@ void BleekBassBoxEditor::timerCallback() {
     for (int i = 0; i < 8; ++i)
         barSelectBtns_[i].setEnabled(i < activeBarCount);
 
-    if (pianoRoll_.getSelectedBar() >= activeBarCount) {
-        pianoRoll_.setSelectedBar(0);
+    // While the host plays, follow the playhead through the phrase bars
+    int wantedBar = pianoRoll_.getSelectedBar();
+    if (processor_.isHostPlaying())
+        wantedBar = static_cast<int>(std::floor(processor_.getPlayheadBarPosition()));
+    if (wantedBar >= activeBarCount || wantedBar < 0)
+        wantedBar = 0;
+
+    if (wantedBar != pianoRoll_.getSelectedBar()) {
+        pianoRoll_.setSelectedBar(wantedBar);
         for (int k = 0; k < 8; ++k)
-            barSelectBtns_[k].setToggleState(k == 0, juce::dontSendNotification);
+            barSelectBtns_[k].setToggleState(k == wantedBar, juce::dontSendNotification);
     }
 
     pianoRoll_.repaint();

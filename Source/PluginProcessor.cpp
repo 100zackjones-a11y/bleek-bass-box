@@ -261,12 +261,17 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     // 1. Handle incoming live MIDI keyboard notes (for auditioning dropped samples)
     for (const auto metadata : midiMessages) {
         const auto msg = metadata.getMessage();
-        if (msg.isNoteOn())
+        if (msg.isNoteOn()) {
             sampler.noteOn(msg.getNoteNumber(), msg.getFloatVelocity());
-        else if (msg.isNoteOff())
+            liveHeldNote_ = msg.getNoteNumber();
+        } else if (msg.isNoteOff()) {
             sampler.noteOff(msg.getNoteNumber());
-        else if (msg.isAllNotesOff() || msg.isAllSoundOff())
+            if (liveHeldNote_ == msg.getNoteNumber())
+                liveHeldNote_ = -1;
+        } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
             sampler.allNotesOff();
+            liveHeldNote_ = -1;
+        }
     }
 
     // 2. Lock to Ableton Live's AudioPlayHead::PositionInfo
@@ -365,6 +370,9 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
             currentlySoundingGeneratedNote_ = -1;
         }
     }
+
+    soundingNoteForUi_.store(liveHeldNote_ >= 0 ? liveHeldNote_ : currentlySoundingGeneratedNote_,
+                             std::memory_order_relaxed);
 
     // 3. Render monophonic bass sampler
     sampler.renderNextBlock(buffer, 0, numSamples);

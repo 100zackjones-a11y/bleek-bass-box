@@ -51,6 +51,7 @@ public:
     double getPlayheadBarPosition() const noexcept { return playheadBarPos_.load(std::memory_order_relaxed); }
     bool isHostPlaying() const noexcept { return isPlaying_.load(std::memory_order_relaxed); }
     uint32_t getCurrentSeed() const noexcept { return currentSeed_.load(std::memory_order_relaxed); }
+    int getSoundingNote() const noexcept { return soundingNoteForUi_.load(std::memory_order_relaxed); }
 
     juce::AudioProcessorValueTreeState apvts;
     MonoSampler sampler;
@@ -70,6 +71,8 @@ private:
     std::atomic<bool> needsRegeneration_ { true };
 
     int currentlySoundingGeneratedNote_ = -1;
+    std::atomic<int> soundingNoteForUi_ { -1 }; // generated or live-played note, for keyboard highlight
+    int liveHeldNote_ = -1;
     double lastBlockEndTick_ = -1.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BleekBassBoxProcessor)

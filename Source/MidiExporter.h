@@ -98,10 +98,11 @@ public:
         }
 
         const auto safeTag = archetypeTag.retainCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-");
-        const auto fileName = juce::String::formatted("BLEEK_%s_%dBPM_S%u.mid",
-                                                      safeTag.toRawUTF8(),
-                                                      static_cast<int>(bpm + 0.5),
-                                                      seed);
+        // Built by concatenation: String::formatted("%s") reads wide strings on Windows and
+        // produced garbled filenames that Ableton refused to accept as a drop.
+        const auto fileName = "BLEEK_" + safeTag
+                            + "_" + juce::String(static_cast<int>(bpm + 0.5)) + "BPM"
+                            + "_S" + juce::String(static_cast<juce::uint32>(seed)) + ".mid";
         auto outFile = tempDir.getChildFile(fileName);
         exportToFile(notes, bpm, totalBars, outFile);
         return outFile;
