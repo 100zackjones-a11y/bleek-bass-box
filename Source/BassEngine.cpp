@@ -139,94 +139,111 @@ void BassEngine::generate(const GenerationParams& p) {
 }
 
 void BassEngine::applyCallResponse(std::vector<BarPattern>& bars, const GenerationParams& p) {
-    // Separate RNG stream so switching C&R on/off never changes the call bars themselves
-    Mulberry32 rng(p.seed ^ 0xC411A5EDu);
+    // Rule-based (no randomness): an answer repeats its call, then rewrites only the
+    // tail of the phrase so it walks - in scale - to a cadence note.
+    //   UP     : tail climbs to the 5th above (final bar: home to the root / octave)
+    //   DOWN   : tail falls to the 5th below  (final bar: home to the root)
+    //   MIRROR : tail inverts the call's shape around the root, then cadences
+    // ANSWER AMOUNT = how many tail notes are rewritten (1..4); above ~66% the answer
+    // also gets a pickup note on step 15 (off the snare) to push into the next bar.
     const float amt = std::clamp(p.responseAmount, 0.0f, 1.0f);
     const int numBars = static_cast<int>(bars.size());
+    const int dir = std::clamp(p.responseDirection, 0, 2);
 
     static constexpr std::array<int, 4> kLiquidCycle = { 0, 8, 10, 7 };
     auto anchorFor = [&](int bar) {
-        return (p.archetype == BassArchetype::LiquidFunk) ? kLiquidCycle[bar % 4] : 0;
+        return (p.archetype == BassArchetype::LiquidFunk) ? kLiquidCycle[static_cast<size_t>(bar % 4)] : 0;
     };
 
+    // Snap an interval (semitones from the root) to the minor pentatonic: 0 3 5 7 10
+    auto snapToScale = [](int rel) {
+        static constexpr std::array<int, 6> kDeg = { 0, 3, 5, 7, 10, 12 };
+        const int oct = (rel >= 0) ? rel / 12 : -((-rel + 11) / 12);
+        const int pc = rel - oct * 12;
+        int best = 0, bestDist = 99;
+        for (int d : kDeg) {
+            if (std::abs(d - pc) < bestDist) { bestDist = std::abs(d - pc); best = d; }
+        }
+        return oct * 12 + best;
+    };
+
+    const auto drums = getDrumGrid(p.drumTemplate);
+
     for (int b = 1; b < numBars; b += 2) {
-        const BarPattern& call = bars[b - 1];
-        const BarPattern original = bars[b];
-        BarPattern answer = call;
+        const BarPattern& call = bars[static_cast<size_t>(b - 1)];
+        const BarPattern original = bars[static_cast<size_t>(b)];
+        BarPattern answer = call; // start as an exact echo of the call
 
         const int callAnchor = anchorFor(b - 1);
         const int ansAnchor = anchorFor(b);
         const bool isFinalBar = (b == numBars - 1);
 
-        // ---- Rhythm: first half echoes the call, second half answers it ----
-        if (!p.lockRhythm) {
-            const float flipProb = 0.12f + 0.45f * amt;
-            for (int s = 9; s < 16; ++s) {
-                if (rng.nextFloat() >= flipProb) continue;
-                if (answer[s].active) {
-                    answer[s].active = false;
-                } else {
-                    // Borrow length/velocity from the nearest earlier note
-                    int src = s - 1;
-                    while (src >= 0 && !answer[src].active) --src;
-                    answer[s].active = true;
-                    answer[s].isTurnaround32nd = false;
-                    answer[s].durationSteps = (src >= 0) ? std::max(1, std::min(answer[src].durationSteps, 16 - s)) : 1;
-                    answer[s].velocity = (src >= 0) ? std::max(80, answer[src].velocity - 6) : 100;
-                }
-            }
-            // Never leave the answer half empty
-            bool anyLate = false;
-            for (int s = 8; s < 16; ++s) anyLate = anyLate || answer[s].active;
-            if (!anyLate) {
-                answer[8].active = true;
-                answer[8].durationSteps = 2;
-                answer[8].velocity = 112;
+        // Keep the answer in its own harmonic place (Liquid Funk chord cycle)
+        for (auto& slot : answer)
+            if (slot.active) slot.interval = ansAnchor + (slot.interval - callAnchor);
+
+        // ---- Rhythm: identical groove; only an optional pickup at high amounts ----
+        if (!p.lockRhythm && amt >= 0.66f && !isFinalBar) {
+            int last = -1;
+            for (int s = 15; s >= 0; --s) if (answer[static_cast<size_t>(s)].active) { last = s; break; }
+            if (last >= 0 && last < 13 && !answer[14].active && drums[14] != DrumHit::Snare) {
+                answer[14] = answer[static_cast<size_t>(last)];
+                answer[14].durationSteps = 1;
+                answer[14].isTurnaround32nd = false;
+                answer[14].velocity = 112;
+                // shorten the note before it so the pickup speaks clearly
+                auto& prev = answer[static_cast<size_t>(last)];
+                prev.durationSteps = std::max(1, std::min(prev.durationSteps, 14 - last));
             }
         }
 
-        // ---- Pitch: transform the answer half by direction ----
+        // ---- Pitch: rewrite the tail so it walks in scale to the cadence ----
         if (!p.lockPitch) {
-            static constexpr std::array<int, 3> kUp   = { 3, 5, 7 };
-            static constexpr std::array<int, 3> kDown = { -2, -5, -7 };
-            const int shift = (p.responseDirection == 0) ? kUp[static_cast<size_t>(rng.nextInt(0, 2))]
-                            : (p.responseDirection == 1) ? kDown[static_cast<size_t>(rng.nextInt(0, 2))]
-                            : 0;
+            std::vector<int> act;
+            for (int s = 0; s < 16; ++s) if (answer[static_cast<size_t>(s)].active) act.push_back(s);
 
-            for (int s = 0; s < 16; ++s) {
-                if (!answer[s].active) continue;
-                int rel = answer[s].interval - callAnchor;
+            if (act.size() >= 2) { // a one-note bar keeps its downbeat as is
+                const int n = static_cast<int>(act.size());
+                const int k = std::clamp(1 + static_cast<int>(std::round(amt * 3.0f)), 1, std::max(1, n - 1 > 0 ? n - 1 : 1));
 
-                const bool answerHalf = (s >= 8);
-                const float changeProb = answerHalf ? (0.40f + 0.60f * amt) : (0.30f * amt);
-                if (s != 0 && rng.nextFloat() < changeProb) {
-                    if (p.responseDirection == 2) {
-                        rel = -rel;                 // mirror around the root
+                int target;
+                if (isFinalBar) target = (dir == 0 && amt > 0.5f) ? 12 : 0;
+                else            target = (dir == 1) ? -5 : 7;
+
+                // Where the tail starts from: the last note that is kept as an echo
+                const int headIdx = n - k - 1;
+                const int startRel = (headIdx >= 0)
+                    ? answer[static_cast<size_t>(act[static_cast<size_t>(headIdx)])].interval - ansAnchor
+                    : 0;
+
+                for (int j = 0; j < k; ++j) {
+                    const int s = act[static_cast<size_t>(n - k + j)];
+                    int rel;
+                    if (j == k - 1) {
+                        rel = target;
+                    } else if (dir == 2) {
+                        rel = snapToScale(-(call[static_cast<size_t>(s)].interval - callAnchor));
                         if (rel < -7) rel += 12;
                     } else {
-                        rel += shift;
+                        const float t = static_cast<float>(j + 1) / static_cast<float>(k);
+                        rel = snapToScale(static_cast<int>(std::round(startRel + (target - startRel) * t)));
+                        // Approach the cadence from the direction of travel, never sit on it early
+                        if (rel == target)
+                            rel = snapToScale(target + ((dir == 1) ? 2 : -2));
                     }
+                    answer[static_cast<size_t>(s)].interval = ansAnchor + std::clamp(rel, -12, 24);
                 }
-                answer[s].interval = std::clamp(ansAnchor + rel, ansAnchor - 12, ansAnchor + 24);
             }
-            if (answer[0].active)
-                answer[0].interval = ansAnchor; // answers start grounded on the root
-
-            // Cadence: mid-phrase answers lean on the 5th, the last bar comes home to the root
-            int last = -1;
-            for (int s = 15; s >= 0; --s) if (answer[s].active) { last = s; break; }
-            if (last > 0)
-                answer[last].interval = isFinalBar ? ansAnchor : ansAnchor + 7;
         }
 
         // Keep the end-of-phrase turnaround pickup from the original final bar
         if (isFinalBar) {
-            for (int s = 14; s < 16; ++s) {
-                if (original[s].active) answer[s] = original[s];
-            }
+            for (int s = 14; s < 16; ++s)
+                if (original[static_cast<size_t>(s)].active && original[static_cast<size_t>(s)].isTurnaround32nd)
+                    answer[static_cast<size_t>(s)] = original[static_cast<size_t>(s)];
         }
 
-        bars[b] = answer;
+        bars[static_cast<size_t>(b)] = answer;
     }
 }
 

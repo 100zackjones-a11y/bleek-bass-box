@@ -445,6 +445,20 @@ void MonoSampler::releaseHeld() {
         mainVoice_.adsr.noteOff();
 }
 
+void MonoSampler::fadeOutHeld() {
+    // Hand the sounding voice to the steal slot and fade it in 6 ms, exactly like a
+    // monophonic re-trigger, so the other sample slot can take over without overlap.
+    if (!mainVoice_.active)
+        return;
+    stealVoice_ = mainVoice_;
+    stealVoice_.isFadingOutForSteal = true;
+    stealVoice_.stealGain = 1.0f;
+    const float fadeSamples = std::max(1.0f, static_cast<float>(hostSampleRate_ * 0.006));
+    stealVoice_.stealStep = 1.0f / fadeSamples;
+    mainVoice_.active = false;
+    mainVoice_.adsr.reset();
+}
+
 void MonoSampler::allNotesOff() {
     mainVoice_.active = false;
     mainVoice_.adsr.reset();

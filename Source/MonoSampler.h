@@ -45,7 +45,8 @@ public:
 
     void noteOn(int midiNote, float velocity);
     void noteOff(int midiNote);
-    void releaseHeld();   // send the held note into its release stage (mono hand-off between slots)
+    void releaseHeld();   // send the held note into its release stage
+    void fadeOutHeld();   // 6 ms de-click fade of whatever is sounding (mono hand-off between slots)
     void allNotesOff();
 
     // Share another sampler's sample (slot B following slot A)

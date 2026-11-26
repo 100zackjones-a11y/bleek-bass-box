@@ -330,7 +330,7 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
         auto& target = (msg.getChannel() == 2) ? samplerB : sampler;
         auto& other  = (msg.getChannel() == 2) ? sampler : samplerB;
         if (msg.isNoteOn()) {
-            other.releaseHeld();
+            other.fadeOutHeld();
             target.noteOn(msg.getNoteNumber(), msg.getFloatVelocity());
             liveHeldNote_ = msg.getNoteNumber();
         } else if (msg.isNoteOff()) {
@@ -433,7 +433,7 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
             const int onSample = isTickInWindow(noteOnTick);
             if (onSample >= 0 && onSample < numSamples) {
                 const float velNorm = static_cast<float>(n.velocity) / 127.0f;
-                other.releaseHeld(); // monophonic hand-off between the two slots
+                other.fadeOutHeld(); // clean 6 ms mono hand-off between the two slots
                 target.noteOn(n.midiNote, velNorm);
                 currentlySoundingGeneratedNote_ = n.midiNote;
                 currentGenChannel_ = channel;
