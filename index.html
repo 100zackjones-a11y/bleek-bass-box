@@ -205,6 +205,7 @@
     .drag-badge {
       cursor: grab;
       text-decoration: none;
+      -webkit-user-drag: element;
     }
     .drag-badge:active {
       cursor: grabbing;
@@ -380,7 +381,7 @@
           <span>GENERATE</span>
         </button>
 
-        <a id="btnDragMid" draggable="true" class="hw-btn hw-btn-amber drag-badge" title="Drag directly onto your Desktop or into Ableton Live">
+        <a id="btnDragMid" href="#" download="BLEEK_BASS.mid" draggable="true" class="hw-btn hw-btn-amber drag-badge" title="Drag directly onto your Desktop or into an Ableton Live MIDI track">
           <span>⠿ DRAG .MID</span>
         </a>
 
@@ -691,6 +692,7 @@
 
     state.cachedBars = workingBars;
     compileAndValidateMidi(workingBars);
+    syncDragLinkDataUri();
     updateLcdStatus();
     drawPianoRoll();
   }
@@ -1111,6 +1113,23 @@
     return { bytes, fileName };
   }
 
+  function bytesToBase64(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  // Keeps the <a id="btnDragMid"> anchor armed with a self-contained data: URI
+  // so Chrome/Edge native drag-out to Desktop or Ableton works reliably on HTTPS
+  function syncDragLinkDataUri() {
+    const dragBtn = document.getElementById('btnDragMid');
+    if (!dragBtn) return;
+    const { bytes, fileName } = buildMidiBinaryData();
+    const dataUri = `data:audio/midi;base64,${bytesToBase64(bytes)}`;
+    dragBtn.href = dataUri;
+    dragBtn.setAttribute('download', fileName);
+  }
+
   function exportMidiFile() {
     const { bytes, fileName } = buildMidiBinaryData();
     const blob = new Blob([bytes], { type: 'audio/midi' });
@@ -1147,7 +1166,6 @@
     }
   }
 
-  // Geometry helper shared between piano roll renderer and click-to-audition keyboard
   function getPianoRollLayout(w, h) {
     const padX = 8, padY = 8, drumH = 18;
     const keysW = 54;
@@ -1173,7 +1191,7 @@
     const stepW = L.gridW / 16;
     const drums = DRUM_TEMPLATES[state.drumContext];
 
-    // 1. Top-left "KEYS" header pill above piano keyboard
+    // 1. Top-left "PIANO" header pill
     ctx.fillStyle = 'rgba(38, 247, 154, 0.12)';
     ctx.fillRect(L.padX, L.padY, L.keysW - 3, L.drumH - 2);
     ctx.fillStyle = '#26f79a';
@@ -1182,7 +1200,7 @@
     ctx.textBaseline = 'middle';
     ctx.fillText('PIANO', L.padX + (L.keysW - 3) / 2, L.padY + (L.drumH - 2) / 2);
 
-    // 2. Vertical Piano Keyboard Sidebar + Horizontal Pitch Lane Shading
+    // 2. Vertical Piano Keyboard Sidebar + Horizontal Pitch Lanes
     for (let m = L.minNote; m <= L.maxNote; m++) {
       const pc = ((m % 12) + 12) % 12;
       const isBlack = BLACK_KEY_PCS.has(pc);
@@ -1190,7 +1208,6 @@
       const isActive = (m === state.currentlySoundingMidi);
       const ry = L.gridY + L.gridH - (m - L.minNote + 1) * L.rowH;
 
-      // Subtle horizontal lane striping across sequencer grid
       if (isActive) {
         ctx.fillStyle = 'rgba(255, 158, 27, 0.18)';
         ctx.fillRect(L.gridX, ry, L.gridW, L.rowH);
@@ -1202,11 +1219,9 @@
         ctx.fillRect(L.gridX, ry, L.gridW, L.rowH);
       }
 
-      // Horizontal lane divider
       ctx.strokeStyle = 'rgba(38, 247, 154, 0.07)';
       ctx.beginPath(); ctx.moveTo(L.gridX, ry); ctx.lineTo(L.gridX + L.gridW, ry); ctx.stroke();
 
-      // Piano Key Body
       const keyX = L.padX;
       const keyW = L.keysW - 3;
       const keyH = Math.max(2, L.rowH - 0.8);
@@ -1222,17 +1237,14 @@
       }
       ctx.fillRect(keyX, ry + 0.4, keyW, keyH);
 
-      // Black key inner shorter cap visual
       if (isBlack && !isActive) {
         ctx.fillStyle = '#040a08';
         ctx.fillRect(keyX, ry + 0.4, keyW * 0.62, keyH);
       }
 
-      // Key outline
       ctx.strokeStyle = 'rgba(38, 247, 154, 0.35)';
       ctx.strokeRect(keyX, ry + 0.4, keyW, keyH);
 
-      // Note name label on every key (C1, C#1, D1...)
       const noteLabel = `${NOTE_NAMES[pc]}${Math.floor(m / 12) - 1}`;
       ctx.font = (isRoot || isActive) ? 'bold 9px "Share Tech Mono", monospace' : '8.5px "Share Tech Mono", monospace';
       ctx.textAlign = 'right';
@@ -1351,15 +1363,19 @@
       }
     });
 
-    // Native Browser File Drag-Out for DRAG .MID
+    // Native Browser File Drag-Out for DRAG .MID (uses pre-armed data: URI + DownloadURL)
     const dragBtn = document.getElementById('btnDragMid');
     dragBtn.addEventListener('dragstart', (e) => {
-      const { bytes, fileName } = buildMidiBinaryData();
-      const blob = new Blob([bytes], { type: 'audio/midi' });
-      const blobUrl = URL.createObjectURL(blob);
+      syncDragLinkDataUri();
+      const fileName = dragBtn.getAttribute('download') || 'BLEEK_BASS.mid';
+      const dataUri = dragBtn.href;
       e.dataTransfer.effectAllowed = 'copy';
-      // Chrome / Edge native OS file drag-out protocol
-      e.dataTransfer.setData('DownloadURL', `audio/midi:${fileName}:${blobUrl}`);
+      try {
+        e.dataTransfer.setData('DownloadURL', `audio/midi:${fileName}:${dataUri}`);
+      } catch (_) {}
+      try {
+        e.dataTransfer.setData('text/uri-list', dataUri);
+      } catch (_) {}
     });
     dragBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1393,7 +1409,7 @@
     document.getElementById('archetypeSelect').addEventListener('change', (e) => { state.archetype = parseInt(e.target.value, 10); generatePattern(false); });
     document.getElementById('drumContextSelect').addEventListener('change', (e) => { state.drumContext = parseInt(e.target.value, 10); generatePattern(false); });
     document.getElementById('phraseSelect').addEventListener('change', (e) => { state.phraseBars = parseInt(e.target.value, 10); if (state.selectedBar >= state.phraseBars) state.selectedBar = 0; refreshBarTabs(); generatePattern(false); });
-    document.getElementById('bpmInput').addEventListener('change', (e) => { state.bpm = Math.max(120, Math.min(200, parseFloat(e.target.value) || 170)); updateLcdStatus(); });
+    document.getElementById('bpmInput').addEventListener('change', (e) => { state.bpm = Math.max(120, Math.min(200, parseFloat(e.target.value) || 170)); syncDragLinkDataUri(); updateLcdStatus(); });
 
     ['lockRhythm', 'lockPitch', 'lockPhrase', 'lockGroove'].forEach(id => {
       const btn = document.getElementById(id);
