@@ -14,7 +14,8 @@ BleekBassBoxProcessor::BleekBassBoxProcessor()
         "noteDensity", "syncopation", "phraseVariation", "noteLength",
         "chromaticism", "octaveMovement", "drumAwareness", "swing",
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
-        "attack", "decay", "sustain", "release", "liveMidiOut"
+        "attack", "decay", "sustain", "release", "liveMidiOut",
+        "callResponse", "responseAmount", "responseDir"
     };
     for (const auto* id : paramIds)
         apvts.addParameterListener(id, this);
@@ -28,7 +29,8 @@ BleekBassBoxProcessor::~BleekBassBoxProcessor() {
         "noteDensity", "syncopation", "phraseVariation", "noteLength",
         "chromaticism", "octaveMovement", "drumAwareness", "swing",
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
-        "attack", "decay", "sustain", "release", "liveMidiOut"
+        "attack", "decay", "sustain", "release", "liveMidiOut",
+        "callResponse", "responseAmount", "responseDir"
     };
     for (const auto* id : paramIds)
         apvts.removeParameterListener(id, this);
@@ -120,6 +122,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleekBassBoxProcessor::creat
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID("liveMidiOut", 1), "Live MIDI Out", true));
 
+    // Call & Response
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID("callResponse", 1), "Call & Response", false));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("responseAmount", 1), "Answer Amount", 0.0f, 1.0f, 0.50f));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("responseDir", 1), "Answer Direction",
+        juce::StringArray{ "Answer Up", "Answer Down", "Answer Mirror" }, 0));
+
     return { params.begin(), params.end() };
 }
 
@@ -188,6 +199,10 @@ GenerationParams BleekBassBoxProcessor::buildGenerationParamsFromState() const {
     g.lockPitch = apvts.getRawParameterValue("lockPitch")->load() > 0.5f;
     g.lockPhrase = apvts.getRawParameterValue("lockPhrase")->load() > 0.5f;
     g.lockGroove = apvts.getRawParameterValue("lockGroove")->load() > 0.5f;
+
+    g.callResponse = apvts.getRawParameterValue("callResponse")->load() > 0.5f;
+    g.responseAmount = apvts.getRawParameterValue("responseAmount")->load();
+    g.responseDirection = static_cast<int>(apvts.getRawParameterValue("responseDir")->load());
     return g;
 }
 

@@ -120,6 +120,15 @@ private:
     juce::ToggleButton lockPhraseBtn_ { "LOCK PHRASE" };
     juce::ToggleButton lockGrooveBtn_ { "LOCK GROOVE" };
 
+    // Call & Response
+    juce::ToggleButton callResponseBtn_ { "CALL & RESPONSE" };
+    juce::ComboBox responseDirBox_;
+    juce::Slider responseAmountSlider_;
+    juce::Label responseAmountLbl_;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attCallResp_;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attRespDir_;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attRespAmt_;
+
     // APVTS Attachments
     using SliderAtt = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;

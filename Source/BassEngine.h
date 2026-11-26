@@ -83,6 +83,11 @@ struct GenerationParams {
     bool lockPitch = false;
     bool lockPhrase = false;
     bool lockGroove = false;
+
+    // Call & Response: odd bars answer the bar before them
+    bool callResponse = false;
+    float responseAmount = 0.5f;   // 0 = near echo, 1 = strongly contrasting answer
+    int responseDirection = 0;     // 0 = Up, 1 = Down, 2 = Mirror
 };
 
 // Deterministic Mulberry32 PRNG for reproducible seeds across macOS/Windows
@@ -155,6 +160,8 @@ private:
 
     void compileAndValidateMidi(const std::vector<BarPattern>& bars,
                                 const GenerationParams& p);
+
+    void applyCallResponse(std::vector<BarPattern>& bars, const GenerationParams& p);
 };
 
 } // namespace bleek

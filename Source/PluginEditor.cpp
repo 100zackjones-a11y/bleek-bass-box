@@ -577,7 +577,7 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
       pianoRoll_(p)
 {
     setLookAndFeel(&lookAndFeel_);
-    setSize(980, 636);
+    setSize(980, 676);
 
     // Top Bar
     generateBtn_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF9A3412));
@@ -688,6 +688,12 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     setupHSlider(octaveSlider_, octaveLbl_, "OCTAVE MOVEMENT");
     setupHSlider(drumAwareSlider_, drumAwareLbl_, "DRUM AWARENESS");
     setupHSlider(swingSlider_, swingLbl_, "SWING");
+    setupHSlider(responseAmountSlider_, responseAmountLbl_, "ANSWER AMOUNT");
+
+    // Call & Response
+    addAndMakeVisible(callResponseBtn_);
+    responseDirBox_.addItemList({ "Answer Up", "Answer Down", "Answer Mirror" }, 1);
+    addAndMakeVisible(responseDirBox_);
 
     // Dimension Locks
     addAndMakeVisible(lockRhythmBtn_);
@@ -721,6 +727,10 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     attLockPhrase_ = std::make_unique<ButtonAtt>(processor_.apvts, "lockPhrase", lockPhraseBtn_);
     attLockGroove_ = std::make_unique<ButtonAtt>(processor_.apvts, "lockGroove", lockGrooveBtn_);
     attLiveOut_    = std::make_unique<ButtonAtt>(processor_.apvts, "liveMidiOut", liveMidiOutToggle_);
+
+    attCallResp_ = std::make_unique<ButtonAtt>(processor_.apvts, "callResponse", callResponseBtn_);
+    attRespDir_  = std::make_unique<ComboAtt>(processor_.apvts, "responseDir", responseDirBox_);
+    attRespAmt_  = std::make_unique<SliderAtt>(processor_.apvts, "responseAmount", responseAmountSlider_);
 
     startTimerHz(30);
 }
@@ -845,7 +855,7 @@ void BleekBassBoxEditor::paint(juce::Graphics& g) {
     g.fillRoundedRectangle(samplerPanel, 3.0f);
     BleekLookAndFeel::drawHardwareBezel(g, samplerPanel, true);
 
-    auto enginePanel = juce::Rectangle<float>(faceplate.getX() + 10.0f, 404.0f, faceplate.getWidth() - 20.0f, 220.0f);
+    auto enginePanel = juce::Rectangle<float>(faceplate.getX() + 10.0f, 404.0f, faceplate.getWidth() - 20.0f, 260.0f);
     g.setColour(Palette::kPanelRecess);
     g.fillRoundedRectangle(enginePanel, 3.0f);
     BleekLookAndFeel::drawHardwareBezel(g, enginePanel, true);
@@ -943,6 +953,16 @@ void BleekBassBoxEditor::resized() {
     lockGrooveBtn_.setBounds(lockRow.removeFromLeft(lockW).reduced(2));
 
     area.removeFromTop(8);
+
+    // Call & Response row
+    auto crRow = area.removeFromTop(30);
+    callResponseBtn_.setBounds(crRow.removeFromLeft(lockW).reduced(2));
+    responseDirBox_.setBounds(crRow.removeFromLeft(170).reduced(2, 3));
+    crRow.removeFromLeft(16);
+    responseAmountLbl_.setBounds(crRow.removeFromLeft(135));
+    responseAmountSlider_.setBounds(crRow.removeFromLeft(300));
+
+    area.removeFromTop(10);
 
     // 5. 2-Column Compositional Sliders
     auto leftCol = area.removeFromLeft(area.getWidth() / 2).reduced(6, 0);
