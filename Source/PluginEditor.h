@@ -133,6 +133,9 @@ private:
 
     std::unique_ptr<juce::FileChooser> activeFileChooser_;
 
+    std::array<float, 4> lastAdsr_ { -1.0f, -1.0f, -1.0f, -1.0f };
+    const SampleAsset* lastAsset_ = nullptr;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BleekBassBoxEditor)
 };
 

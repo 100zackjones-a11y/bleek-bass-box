@@ -303,18 +303,95 @@ void SampleDropZone::paint(juce::Graphics& g) {
     if (numSamples > 0 && waveArea.getWidth() > 4.0f) {
         const float* data = asset->buffer.getReadPointer(0);
         const int w = static_cast<int>(waveArea.getWidth());
-        const int step = std::max(1, numSamples / w);
         const float midY = waveArea.getCentreY();
         const float halfH = waveArea.getHeight() * 0.45f;
 
-        g.setColour(asset->isFallbackSine ? Palette::kLcdPhosphor : Palette::kAmberLed);
+        // ADSR timeline (ms). The view spans the whole sample, extended if the
+        // envelope is longer; note-off sits so the release ends at the right edge.
+        const float aMs = std::max(0.0f, processor_.apvts.getRawParameterValue("attack")->load());
+        const float dMs = std::max(0.0f, processor_.apvts.getRawParameterValue("decay")->load());
+        const float sLv = juce::jlimit(0.0f, 1.0f, processor_.apvts.getRawParameterValue("sustain")->load());
+        const float rMs = std::max(0.0f, processor_.apvts.getRawParameterValue("release")->load());
+        const float sampleMs = static_cast<float>(numSamples / std::max(1.0, asset->sampleRate) * 1000.0);
+        const float minHoldMs = 0.15f * std::max(sampleMs, aMs + dMs + rMs);
+        const float totalMs = std::max(sampleMs, aMs + dMs + minHoldMs + rMs);
+        const float noteOffMs = totalMs - rMs;
+
+        auto envAt = [&](float tMs) -> float {
+            float level;
+            if (tMs < aMs) level = aMs > 0.0f ? tMs / aMs : 1.0f;
+            else if (tMs < aMs + dMs) level = 1.0f - (1.0f - sLv) * ((tMs - aMs) / std::max(0.001f, dMs));
+            else level = sLv;
+            if (tMs >= noteOffMs) {
+                const float atOff = (noteOffMs < aMs) ? (aMs > 0.0f ? noteOffMs / aMs : 1.0f)
+                                  : (noteOffMs < aMs + dMs) ? 1.0f - (1.0f - sLv) * ((noteOffMs - aMs) / std::max(0.001f, dMs))
+                                  : sLv;
+                level = atOff * (1.0f - juce::jlimit(0.0f, 1.0f, (tMs - noteOffMs) / std::max(0.001f, rMs)));
+            }
+            return juce::jlimit(0.0f, 1.0f, level);
+        };
+
+        const juce::Colour waveCol = asset->isFallbackSine ? Palette::kLcdPhosphor : Palette::kAmberLed;
+        const float samplesPerMs = static_cast<float>(asset->sampleRate / 1000.0);
+
         for (int x = 0; x < w; ++x) {
-            const int idx = std::min(numSamples - 1, x * step);
+            const float t0 = totalMs * static_cast<float>(x) / static_cast<float>(w);
+            const float t1 = totalMs * static_cast<float>(x + 1) / static_cast<float>(w);
+            const int i0 = static_cast<int>(t0 * samplesPerMs);
+            const int i1 = std::min(numSamples, std::max(i0 + 1, static_cast<int>(t1 * samplesPerMs)));
+            if (i0 >= numSamples) break;
+
             float peak = 0.0f;
-            for (int k = 0; k < step && (idx + k) < numSamples; k += std::max(1, step / 8))
-                peak = std::max(peak, std::abs(data[idx + k]));
-            const float h = std::max(1.0f, peak * halfH);
-            g.drawVerticalLine(static_cast<int>(waveArea.getX()) + x, midY - h, midY + h);
+            const int stride = std::max(1, (i1 - i0) / 16);
+            for (int i = i0; i < i1; i += stride)
+                peak = std::max(peak, std::abs(data[i]));
+
+            const int px = static_cast<int>(waveArea.getX()) + x;
+            const float raw = std::max(1.0f, peak * halfH);
+            g.setColour(waveCol.withAlpha(0.18f)); // unshaped sample, ghosted
+            g.drawVerticalLine(px, midY - raw, midY + raw);
+
+            const float shaped = std::max(0.5f, peak * envAt(0.5f * (t0 + t1)) * halfH);
+            g.setColour(waveCol); // what you actually hear
+            g.drawVerticalLine(px, midY - shaped, midY + shaped);
+        }
+
+        // Envelope curve over the waveform
+        const float top = waveArea.getY() + 2.0f;
+        const float bottom = waveArea.getBottom() - 2.0f;
+        auto xFor = [&](float ms) { return waveArea.getX() + (ms / totalMs) * waveArea.getWidth(); };
+        auto yFor = [&](float lv) { return bottom - lv * (bottom - top); };
+
+        juce::Path env;
+        env.startNewSubPath(xFor(0.0f), yFor(0.0f));
+        for (int x = 1; x <= w; ++x) {
+            const float t = totalMs * static_cast<float>(x) / static_cast<float>(w);
+            env.lineTo(xFor(t), yFor(envAt(t)));
+        }
+
+        juce::Path fill(env);
+        fill.lineTo(xFor(totalMs), bottom);
+        fill.closeSubPath();
+        g.setColour(Palette::kLcdPhosphor.withAlpha(0.07f));
+        g.fillPath(fill);
+        g.setColour(Palette::kLcdPhosphor);
+        g.strokePath(env, juce::PathStrokeType(1.5f));
+
+        // Stage handles + labels
+        const float attackEnd = std::min(aMs, noteOffMs);
+        const float decayEnd = std::min(aMs + dMs, noteOffMs);
+        const std::array<std::pair<float, const char*>, 4> marks {{
+            { attackEnd, "A" }, { decayEnd, "D" }, { noteOffMs, "S" }, { totalMs, "R" } }};
+        g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 9.5f, juce::Font::bold));
+        for (const auto& [ms, label] : marks) {
+            const float hx = juce::jlimit(waveArea.getX() + 3.0f, waveArea.getRight() - 3.0f, xFor(ms));
+            const float hy = yFor(envAt(std::min(ms, totalMs - 0.001f)));
+            g.setColour(Palette::kLcdPhosphor.withAlpha(0.25f));
+            g.drawVerticalLine(static_cast<int>(hx), top, bottom);
+            g.setColour(Palette::kLcdPhosphor);
+            g.fillEllipse(hx - 3.0f, hy - 3.0f, 6.0f, 6.0f);
+            g.drawText(label, juce::Rectangle<float>(hx - 8.0f, bottom - 12.0f, 16.0f, 12.0f),
+                       juce::Justification::centred, false);
         }
     }
 
@@ -679,6 +756,19 @@ void BleekBassBoxEditor::timerCallback() {
     }
 
     pianoRoll_.repaint();
+
+    // Redraw the sample/ADSR display when the envelope knobs or sample change
+    const std::array<float, 4> adsrNow {
+        processor_.apvts.getRawParameterValue("attack")->load(),
+        processor_.apvts.getRawParameterValue("decay")->load(),
+        processor_.apvts.getRawParameterValue("sustain")->load(),
+        processor_.apvts.getRawParameterValue("release")->load() };
+    const auto assetNow = processor_.sampler.getCurrentAsset().get();
+    if (adsrNow != lastAdsr_ || assetNow != lastAsset_) {
+        lastAdsr_ = adsrNow;
+        lastAsset_ = assetNow;
+        sampleDropZone_.repaint();
+    }
 }
 
 void BleekBassBoxEditor::exportMidiWithFileChooser() {
