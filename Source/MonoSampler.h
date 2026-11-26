@@ -23,6 +23,7 @@ struct SampleAsset {
     int detectedRootMidi = 29; // F1 default
     DetectedKeyInfo detectedKey;
     juce::String fileName { "INTERNAL PURE SUB (SINE)" };
+    juce::String filePath;     // full path, saved with the set so the sample reloads
     bool isFallbackSine = true;
 };
 
@@ -44,7 +45,13 @@ public:
 
     void noteOn(int midiNote, float velocity);
     void noteOff(int midiNote);
+    void releaseHeld();   // send the held note into its release stage (mono hand-off between slots)
     void allNotesOff();
+
+    // Share another sampler's sample (slot B following slot A)
+    void setAsset(std::shared_ptr<const SampleAsset> asset) {
+        if (asset) std::atomic_store(&activeAsset_, std::move(asset));
+    }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples);
 

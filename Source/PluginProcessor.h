@@ -43,8 +43,11 @@ public:
     // UI Actions
     void triggerRegenerate(bool randomizeSeed = true);
     void applyEraPreset(EraPreset era);
-    bool loadSampleFile(const juce::File& file);
-    void resetToDefaultSine();
+    // Slot 0 = A (CALL), slot 1 = B (ANSWER). Slot B follows A until it gets its own sample.
+    bool loadSampleFile(const juce::File& file, int slot = 0, bool setKeyFromSample = true);
+    void resetToDefaultSine(int slot = 0);
+    MonoSampler& getSampler(int slot) noexcept { return slot == 1 ? samplerB : sampler; }
+    bool isSlotBFollowingA() const noexcept { return bFollowsA_.load(std::memory_order_relaxed); }
 
     std::vector<MidiNoteEvent> getPatternSnapshot() const;
     double getHostBpm() const noexcept { return currentBpm_.load(std::memory_order_relaxed); }
@@ -54,7 +57,8 @@ public:
     int getSoundingNote() const noexcept { return soundingNoteForUi_.load(std::memory_order_relaxed); }
 
     juce::AudioProcessorValueTreeState apvts;
-    MonoSampler sampler;
+    MonoSampler sampler;   // slot A (CALL)
+    MonoSampler samplerB;  // slot B (ANSWER)
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -73,6 +77,10 @@ private:
     int currentlySoundingGeneratedNote_ = -1;
     std::atomic<int> soundingNoteForUi_ { -1 }; // generated or live-played note, for keyboard highlight
     int liveHeldNote_ = -1;
+    int currentGenChannel_ = 1;
+    std::atomic<bool> bFollowsA_ { true };
+
+    void applyAdsrToSamplers();
     double lastBlockEndTick_ = -1.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BleekBassBoxProcessor)

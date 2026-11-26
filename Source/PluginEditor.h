@@ -53,9 +53,13 @@ public:
     void fileDragExit(const juce::StringArray&) override { isDraggingOver_ = false; repaint(); }
     void filesDropped(const juce::StringArray& files, int, int) override;
 
+    void setSlot(int slot) { slot_ = slot; repaint(); }
+    int getSlot() const noexcept { return slot_; }
+
 private:
     BleekBassBoxProcessor& processor_;
     bool isDraggingOver_ = false;
+    int slot_ = 0; // 0 = A (CALL), 1 = B (ANSWER)
 };
 
 // 1990s Backlit Emerald LCD Piano Roll + Kick/Snare Markers + Scanlines
@@ -85,6 +89,14 @@ private:
     void timerCallback() override;
     void exportMidiWithFileChooser();
     void browseSampleWithFileChooser();
+    void selectSlot(int slot);           // switch sample panel + ADSR knobs between A and B
+
+    int currentSlot_ = 0;
+    juce::TextButton slotABtn_ { "A" }, slotBBtn_ { "B" };
+
+    // Bottom panel modules (painted as recessed boxes with silkscreen titles)
+    struct Module { juce::Rectangle<int> bounds; juce::String title; };
+    std::array<Module, 5> modules_;
 
     BleekBassBoxProcessor& processor_;
     BleekLookAndFeel lookAndFeel_;

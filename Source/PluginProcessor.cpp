@@ -15,11 +15,13 @@ BleekBassBoxProcessor::BleekBassBoxProcessor()
         "chromaticism", "octaveMovement", "drumAwareness", "swing",
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
         "attack", "decay", "sustain", "release", "liveMidiOut",
-        "callResponse", "responseAmount", "responseDir"
+        "callResponse", "responseAmount", "responseDir",
+        "attackB", "decayB", "sustainB", "releaseB"
     };
     for (const auto* id : paramIds)
         apvts.addParameterListener(id, this);
 
+    samplerB.setAsset(sampler.getCurrentAsset()); // slot B starts by following slot A
     triggerRegenerate(false);
 }
 
@@ -30,7 +32,8 @@ BleekBassBoxProcessor::~BleekBassBoxProcessor() {
         "chromaticism", "octaveMovement", "drumAwareness", "swing",
         "lockRhythm", "lockPitch", "lockPhrase", "lockGroove",
         "attack", "decay", "sustain", "release", "liveMidiOut",
-        "callResponse", "responseAmount", "responseDir"
+        "callResponse", "responseAmount", "responseDir",
+        "attackB", "decayB", "sustainB", "releaseB"
     };
     for (const auto* id : paramIds)
         apvts.removeParameterListener(id, this);
@@ -54,6 +57,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleekBassBoxProcessor::creat
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID("release", 1), "Release",
+        juce::NormalisableRange<float>(5.0f, 2000.0f, 1.0f, 0.4f), 40.0f));
+
+    // Slot B (ANSWER) has its own envelope
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("attackB", 1), "Attack B",
+        juce::NormalisableRange<float>(1.0f, 500.0f, 0.1f, 0.4f), 8.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("decayB", 1), "Decay B",
+        juce::NormalisableRange<float>(10.0f, 3000.0f, 1.0f, 0.4f), 450.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("sustainB", 1), "Sustain B",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.85f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("releaseB", 1), "Release B",
         juce::NormalisableRange<float>(5.0f, 2000.0f, 1.0f, 0.4f), 40.0f));
 
     // Compositional Selectors
@@ -145,12 +162,11 @@ void BleekBassBoxProcessor::parameterChanged(const juce::String& parameterID, fl
     }
 
     if (parameterID == "attack" || parameterID == "decay" ||
-        parameterID == "sustain" || parameterID == "release")
+        parameterID == "sustain" || parameterID == "release" ||
+        parameterID == "attackB" || parameterID == "decayB" ||
+        parameterID == "sustainB" || parameterID == "releaseB")
     {
-        sampler.setADSR(apvts.getRawParameterValue("attack")->load(),
-                        apvts.getRawParameterValue("decay")->load(),
-                        apvts.getRawParameterValue("sustain")->load(),
-                        apvts.getRawParameterValue("release")->load());
+        applyAdsrToSamplers();
         return;
     }
 
@@ -221,20 +237,53 @@ void BleekBassBoxProcessor::triggerRegenerate(bool randomizeSeed) {
     activePattern_ = bassEngine_.getPattern();
 }
 
-bool BleekBassBoxProcessor::loadSampleFile(const juce::File& file) {
-    if (sampler.loadSampleFromFile(file)) {
+void BleekBassBoxProcessor::applyAdsrToSamplers() {
+    sampler.setADSR(apvts.getRawParameterValue("attack")->load(),
+                    apvts.getRawParameterValue("decay")->load(),
+                    apvts.getRawParameterValue("sustain")->load(),
+                    apvts.getRawParameterValue("release")->load());
+    samplerB.setADSR(apvts.getRawParameterValue("attackB")->load(),
+                     apvts.getRawParameterValue("decayB")->load(),
+                     apvts.getRawParameterValue("sustainB")->load(),
+                     apvts.getRawParameterValue("releaseB")->load());
+}
+
+bool BleekBassBoxProcessor::loadSampleFile(const juce::File& file, int slot, bool setKeyFromSample) {
+    if (slot == 1) {
+        // Slot B keeps its own pitch reference; the key stays set by slot A
+        if (!samplerB.loadSampleFromFile(file))
+            return false;
+        bFollowsA_.store(false, std::memory_order_relaxed);
+        return true;
+    }
+
+    if (!sampler.loadSampleFromFile(file))
+        return false;
+
+    if (bFollowsA_.load(std::memory_order_relaxed))
+        samplerB.setAsset(sampler.getCurrentAsset());
+
+    if (setKeyFromSample) {
         const int detected = sampler.getRootMidiNote();
         if (auto* p = apvts.getParameter("rootNote"))
             p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(detected - 24)));
-        needsRegeneration_.store(true, std::memory_order_release);
-        return true;
     }
-    return false;
+    needsRegeneration_.store(true, std::memory_order_release);
+    return true;
 }
 
-void BleekBassBoxProcessor::resetToDefaultSine() {
+void BleekBassBoxProcessor::resetToDefaultSine(int slot) {
+    if (slot == 1) {
+        // "USE A": slot B goes back to following slot A's sample
+        bFollowsA_.store(true, std::memory_order_relaxed);
+        samplerB.setAsset(sampler.getCurrentAsset());
+        return;
+    }
+
     sampler.loadFallbackSine();
     sampler.setRootMidiNote(29);
+    if (bFollowsA_.load(std::memory_order_relaxed))
+        samplerB.setAsset(sampler.getCurrentAsset());
     if (auto* p = apvts.getParameter("rootNote"))
         p->setValueNotifyingHost(p->convertTo0to1(5.0f)); // F1
     needsRegeneration_.store(true, std::memory_order_release);
@@ -247,14 +296,15 @@ std::vector<MidiNoteEvent> BleekBassBoxProcessor::getPatternSnapshot() const {
 
 void BleekBassBoxProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     sampler.prepareToPlay(sampleRate, samplesPerBlock);
-    sampler.setADSR(apvts.getRawParameterValue("attack")->load(),
-                    apvts.getRawParameterValue("decay")->load(),
-                    apvts.getRawParameterValue("sustain")->load(),
-                    apvts.getRawParameterValue("release")->load());
+    samplerB.prepareToPlay(sampleRate, samplesPerBlock);
+    if (bFollowsA_.load(std::memory_order_relaxed))
+        samplerB.setAsset(sampler.getCurrentAsset());
+    applyAdsrToSamplers();
 }
 
 void BleekBassBoxProcessor::releaseResources() {
     sampler.releaseResources();
+    samplerB.releaseResources();
 }
 
 bool BleekBassBoxProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -276,15 +326,20 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     // 1. Handle incoming live MIDI keyboard notes (for auditioning dropped samples)
     for (const auto metadata : midiMessages) {
         const auto msg = metadata.getMessage();
+        // Incoming MIDI channel 2 plays slot B, everything else plays slot A
+        auto& target = (msg.getChannel() == 2) ? samplerB : sampler;
+        auto& other  = (msg.getChannel() == 2) ? sampler : samplerB;
         if (msg.isNoteOn()) {
-            sampler.noteOn(msg.getNoteNumber(), msg.getFloatVelocity());
+            other.releaseHeld();
+            target.noteOn(msg.getNoteNumber(), msg.getFloatVelocity());
             liveHeldNote_ = msg.getNoteNumber();
         } else if (msg.isNoteOff()) {
-            sampler.noteOff(msg.getNoteNumber());
+            target.noteOff(msg.getNoteNumber());
             if (liveHeldNote_ == msg.getNoteNumber())
                 liveHeldNote_ = -1;
         } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
             sampler.allNotesOff();
+            samplerB.allNotesOff();
             liveHeldNote_ = -1;
         }
     }
@@ -354,15 +409,23 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
             return -1;
         };
 
+        // Call & Response: answer bars (odd bar index) play slot B on MIDI channel 2
+        const bool crOn = apvts.getRawParameterValue("callResponse")->load() > 0.5f;
+        auto isAnswer = [crOn](const MidiNoteEvent& n) { return crOn && (n.barIndex % 2 == 1); };
+
         for (const auto& n : notesCopy) {
             const double noteOnTick = static_cast<double>(n.startTick);
             const double noteOffTick = wrapTick(static_cast<double>(n.startTick + n.durationTicks));
+            const bool answer = isAnswer(n);
+            auto& target = answer ? samplerB : sampler;
+            auto& other  = answer ? sampler : samplerB;
+            const int channel = answer ? 2 : 1;
 
             const int offSample = isTickInWindow(noteOffTick);
             if (offSample >= 0 && offSample < numSamples) {
-                sampler.noteOff(n.midiNote);
+                target.noteOff(n.midiNote);
                 if (liveOutEnabled)
-                    midiMessages.addEvent(juce::MidiMessage::noteOff(1, n.midiNote, 0.0f), offSample);
+                    midiMessages.addEvent(juce::MidiMessage::noteOff(channel, n.midiNote, 0.0f), offSample);
                 if (currentlySoundingGeneratedNote_ == n.midiNote)
                     currentlySoundingGeneratedNote_ = -1;
             }
@@ -370,18 +433,21 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
             const int onSample = isTickInWindow(noteOnTick);
             if (onSample >= 0 && onSample < numSamples) {
                 const float velNorm = static_cast<float>(n.velocity) / 127.0f;
-                sampler.noteOn(n.midiNote, velNorm);
+                other.releaseHeld(); // monophonic hand-off between the two slots
+                target.noteOn(n.midiNote, velNorm);
                 currentlySoundingGeneratedNote_ = n.midiNote;
+                currentGenChannel_ = channel;
                 if (liveOutEnabled)
-                    midiMessages.addEvent(juce::MidiMessage::noteOn(1, n.midiNote, velNorm), onSample);
+                    midiMessages.addEvent(juce::MidiMessage::noteOn(channel, n.midiNote, velNorm), onSample);
             }
         }
     } else {
         // Transport stopped: ensure no stuck generated notes
         if (currentlySoundingGeneratedNote_ >= 0) {
-            sampler.noteOff(currentlySoundingGeneratedNote_);
+            sampler.releaseHeld();
+            samplerB.releaseHeld();
             if (liveOutEnabled)
-                midiMessages.addEvent(juce::MidiMessage::noteOff(1, currentlySoundingGeneratedNote_, 0.0f), 0);
+                midiMessages.addEvent(juce::MidiMessage::noteOff(currentGenChannel_, currentlySoundingGeneratedNote_, 0.0f), 0);
             currentlySoundingGeneratedNote_ = -1;
         }
     }
@@ -389,13 +455,23 @@ void BleekBassBoxProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     soundingNoteForUi_.store(liveHeldNote_ >= 0 ? liveHeldNote_ : currentlySoundingGeneratedNote_,
                              std::memory_order_relaxed);
 
-    // 3. Render monophonic bass sampler
+    // 3. Render both monophonic sampler slots
     sampler.renderNextBlock(buffer, 0, numSamples);
+    samplerB.renderNextBlock(buffer, 0, numSamples);
 }
 
 void BleekBassBoxProcessor::getStateInformation(juce::MemoryBlock& destData) {
     auto state = apvts.copyState();
     state.setProperty("seed", static_cast<int64_t>(currentSeed_.load()), nullptr);
+
+    // Remember which samples were loaded (full paths), so the set reopens with them
+    auto pathOf = [](const MonoSampler& s) -> juce::String {
+        auto a = s.getCurrentAsset();
+        return (a && !a->isFallbackSine) ? a->filePath : juce::String();
+    };
+    state.setProperty("sampleA", pathOf(sampler), nullptr);
+    state.setProperty("sampleB", bFollowsA_.load() ? juce::String() : pathOf(samplerB), nullptr);
+
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -407,7 +483,20 @@ void BleekBassBoxProcessor::setStateInformation(const void* data, int sizeInByte
         if (tree.hasProperty("seed")) {
             currentSeed_.store(static_cast<uint32_t>(static_cast<int64_t>(tree.getProperty("seed"))));
         }
+        const juce::String pathA = tree.getProperty("sampleA").toString();
+        const juce::String pathB = tree.getProperty("sampleB").toString();
+
         apvts.replaceState(tree);
+
+        // Reload saved samples without overriding the saved key/root
+        if (pathA.isNotEmpty() && juce::File(pathA).existsAsFile())
+            loadSampleFile(juce::File(pathA), 0, false);
+        if (pathB.isNotEmpty() && juce::File(pathB).existsAsFile())
+            loadSampleFile(juce::File(pathB), 1, false);
+        else
+            resetToDefaultSine(1); // B follows A
+
+        applyAdsrToSamplers();
         triggerRegenerate(false);
     }
 }

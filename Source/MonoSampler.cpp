@@ -92,6 +92,7 @@ bool MonoSampler::loadSampleFromFile(const juce::File& file) {
 
     asset->sampleRate = reader->sampleRate;
     asset->fileName = file.getFileName();
+    asset->filePath = file.getFullPathName();
     asset->isFallbackSine = false;
     asset->detectedKey = detectMusicalKey(asset->buffer, asset->sampleRate, asset->fileName);
     asset->detectedRootMidi = asset->detectedKey.recommendedRootMidi;
@@ -411,7 +412,9 @@ void MonoSampler::noteOn(int midiNote, float velocity) {
         stealVoice_.stealStep = 1.0f / fadeSamples;
     }
 
-    const int root = userRootMidi_.load(std::memory_order_relaxed);
+    // Tune against the sample's own pitch, so the ROOT/key selector actually transposes
+    // and two samples in different keys both play in tune.
+    const int root = asset->detectedRootMidi;
     const double semitoneOffset = static_cast<double>(midiNote - root);
     const double pitchFactor = std::pow(2.0, semitoneOffset / 12.0);
     const double srRatio = asset->sampleRate / hostSampleRate_;
@@ -435,6 +438,11 @@ void MonoSampler::noteOff(int midiNote) {
     if (mainVoice_.active && mainVoice_.midiNote == midiNote) {
         mainVoice_.adsr.noteOff();
     }
+}
+
+void MonoSampler::releaseHeld() {
+    if (mainVoice_.active)
+        mainVoice_.adsr.noteOff();
 }
 
 void MonoSampler::allNotesOff() {

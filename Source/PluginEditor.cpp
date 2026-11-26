@@ -273,7 +273,7 @@ void SampleDropZone::filesDropped(const juce::StringArray& files, int, int) {
     isDraggingOver_ = false;
     for (const auto& f : files) {
         juce::File file(f);
-        if (processor_.loadSampleFile(file))
+        if (processor_.loadSampleFile(file, slot_))
             break;
     }
     repaint();
@@ -290,8 +290,10 @@ void SampleDropZone::paint(juce::Graphics& g) {
         g.drawRoundedRectangle(b.reduced(1.5f), 2.0f, 1.5f);
     }
 
-    auto asset = processor_.sampler.getCurrentAsset();
+    auto asset = processor_.getSampler(slot_).getCurrentAsset();
     if (!asset) return;
+    const juce::String sfx = (slot_ == 1) ? "B" : "";
+    const bool followingA = (slot_ == 1 && processor_.isSlotBFollowingA());
 
     // Draw retro oscilloscope waveform preview
     auto waveArea = b.reduced(8.0f, 16.0f).translated(0.0f, 5.0f);
@@ -308,10 +310,10 @@ void SampleDropZone::paint(juce::Graphics& g) {
 
         // ADSR timeline (ms). The view spans the whole sample, extended if the
         // envelope is longer; note-off sits so the release ends at the right edge.
-        const float aMs = std::max(0.0f, processor_.apvts.getRawParameterValue("attack")->load());
-        const float dMs = std::max(0.0f, processor_.apvts.getRawParameterValue("decay")->load());
-        const float sLv = juce::jlimit(0.0f, 1.0f, processor_.apvts.getRawParameterValue("sustain")->load());
-        const float rMs = std::max(0.0f, processor_.apvts.getRawParameterValue("release")->load());
+        const float aMs = std::max(0.0f, processor_.apvts.getRawParameterValue("attack" + sfx)->load());
+        const float dMs = std::max(0.0f, processor_.apvts.getRawParameterValue("decay" + sfx)->load());
+        const float sLv = juce::jlimit(0.0f, 1.0f, processor_.apvts.getRawParameterValue("sustain" + sfx)->load());
+        const float rMs = std::max(0.0f, processor_.apvts.getRawParameterValue("release" + sfx)->load());
         const float sampleMs = static_cast<float>(numSamples / std::max(1.0, asset->sampleRate) * 1000.0);
         const float minHoldMs = 0.15f * std::max(sampleMs, aMs + dMs + rMs);
         const float totalMs = std::max(sampleMs, aMs + dMs + minHoldMs + rMs);
@@ -414,7 +416,17 @@ void SampleDropZone::paint(juce::Graphics& g) {
 
     g.setColour(Palette::kLcdPhosphor);
     g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 11.0f, juce::Font::bold));
-    g.drawText(asset->fileName,
+    auto slotTag = headerStrip.removeFromLeft(slot_ == 1 ? 74.0f : 62.0f);
+    g.setColour(slot_ == 1 ? Palette::kAmberLed : Palette::kLcdPhosphor);
+    g.fillRoundedRectangle(slotTag.reduced(0.0f, 1.0f), 2.0f);
+    g.setColour(Palette::kLcdBg);
+    g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::bold));
+    g.drawText(slot_ == 1 ? "B ANSWER" : "A CALL", slotTag, juce::Justification::centred, false);
+    headerStrip.removeFromLeft(6.0f);
+
+    g.setColour(Palette::kLcdPhosphor);
+    g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 11.0f, juce::Font::bold));
+    g.drawText(followingA ? ("= A: " + asset->fileName) : asset->fileName,
                headerStrip.withTrimmedRight(6.0f),
                juce::Justification::centredLeft, true);
 }
@@ -577,7 +589,7 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
       pianoRoll_(p)
 {
     setLookAndFeel(&lookAndFeel_);
-    setSize(980, 676);
+    setSize(980, 612);
 
     // Top Bar
     generateBtn_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF9A3412));
@@ -603,10 +615,20 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     loadSampleBtn_.onClick = [this] { browseSampleWithFileChooser(); };
     addAndMakeVisible(loadSampleBtn_);
     sineResetBtn_.onClick = [this] {
-        processor_.resetToDefaultSine();
+        processor_.resetToDefaultSine(currentSlot_);
         sampleDropZone_.repaint();
     };
     addAndMakeVisible(sineResetBtn_);
+
+    // A / B sample slot tabs
+    for (auto* b : { &slotABtn_, &slotBBtn_ }) {
+        b->setClickingTogglesState(false);
+        addAndMakeVisible(*b);
+    }
+    slotABtn_.setTooltip("Sample A - plays the CALL bars (and every bar when Call & Response is off)");
+    slotBBtn_.setTooltip("Sample B - plays the ANSWER bars when Call & Response is on");
+    slotABtn_.onClick = [this] { selectSlot(0); };
+    slotBBtn_.onClick = [this] { selectSlot(1); };
 
     const char* noteNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
     for (int m = 24; m <= 47; ++m)
@@ -669,30 +691,38 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     addAndMakeVisible(phraseLengthBox_);
 
     // Compositional Sliders
+    // Engine controls are rotary knobs grouped into hardware modules (see resized)
     auto setupHSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& text) {
-        s.setSliderStyle(juce::Slider::LinearHorizontal);
-        s.setTextBoxStyle(juce::Slider::TextBoxRight, false, 44, 18);
+        s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 52, 16);
         s.setColour(juce::Slider::textBoxBackgroundColourId, Palette::kLcdBg);
         s.setColour(juce::Slider::textBoxTextColourId, Palette::kLcdPhosphor);
         s.setColour(juce::Slider::textBoxOutlineColourId, Palette::kBevelShadow);
         addAndMakeVisible(s);
         l.setText(text, juce::dontSendNotification);
-        l.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+        l.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+        l.setJustificationType(juce::Justification::centred);
+        l.setColour(juce::Label::textColourId, Palette::kSilkscreen);
         addAndMakeVisible(l);
     };
-    setupHSlider(densitySlider_, densityLbl_, "NOTE DENSITY");
+    setupHSlider(densitySlider_, densityLbl_, "DENSITY");
     setupHSlider(syncopationSlider_, syncopationLbl_, "SYNCOPATION");
-    setupHSlider(variationSlider_, variationLbl_, "PHRASE VARIATION");
     setupHSlider(lengthSlider_, lengthLbl_, "NOTE LENGTH");
-    setupHSlider(chromaticSlider_, chromaticLbl_, "CHROMATICISM");
-    setupHSlider(octaveSlider_, octaveLbl_, "OCTAVE MOVEMENT");
-    setupHSlider(drumAwareSlider_, drumAwareLbl_, "DRUM AWARENESS");
+    setupHSlider(chromaticSlider_, chromaticLbl_, "CHROMATIC");
+    setupHSlider(octaveSlider_, octaveLbl_, "OCTAVE JUMPS");
+    setupHSlider(variationSlider_, variationLbl_, "VARIATION");
     setupHSlider(swingSlider_, swingLbl_, "SWING");
-    setupHSlider(responseAmountSlider_, responseAmountLbl_, "ANSWER AMOUNT");
+    setupHSlider(drumAwareSlider_, drumAwareLbl_, "DRUM LOCK");
+    setupHSlider(responseAmountSlider_, responseAmountLbl_, "AMOUNT");
 
     // Call & Response
     addAndMakeVisible(callResponseBtn_);
-    responseDirBox_.addItemList({ "Answer Up", "Answer Down", "Answer Mirror" }, 1);
+    callResponseBtn_.setButtonText("C&R ON");
+    responseDirBox_.addItemList({ "UP", "DOWN", "MIRROR" }, 1);
+
+    // Each lock now sits inside the module it freezes, so the button just says LOCK
+    for (auto* b : { &lockRhythmBtn_, &lockPitchBtn_, &lockPhraseBtn_, &lockGrooveBtn_ })
+        b->setButtonText("LOCK");
     addAndMakeVisible(responseDirBox_);
 
     // Dimension Locks
@@ -702,10 +732,7 @@ BleekBassBoxEditor::BleekBassBoxEditor(BleekBassBoxProcessor& p)
     addAndMakeVisible(lockGrooveBtn_);
 
     // Bind APVTS Attachments
-    attAttack_  = std::make_unique<SliderAtt>(processor_.apvts, "attack", attackKnob_);
-    attDecay_   = std::make_unique<SliderAtt>(processor_.apvts, "decay", decayKnob_);
-    attSustain_ = std::make_unique<SliderAtt>(processor_.apvts, "sustain", sustainKnob_);
-    attRelease_ = std::make_unique<SliderAtt>(processor_.apvts, "release", releaseKnob_);
+    selectSlot(0); // binds the ADSR knobs to slot A
 
     attDensity_   = std::make_unique<SliderAtt>(processor_.apvts, "noteDensity", densitySlider_);
     attSync_      = std::make_unique<SliderAtt>(processor_.apvts, "syncopation", syncopationSlider_);
@@ -768,16 +795,30 @@ void BleekBassBoxEditor::timerCallback() {
     pianoRoll_.repaint();
 
     // Redraw the sample/ADSR display when the envelope knobs or sample change
+    const juce::String sfx = (currentSlot_ == 1) ? "B" : "";
     const std::array<float, 4> adsrNow {
-        processor_.apvts.getRawParameterValue("attack")->load(),
-        processor_.apvts.getRawParameterValue("decay")->load(),
-        processor_.apvts.getRawParameterValue("sustain")->load(),
-        processor_.apvts.getRawParameterValue("release")->load() };
-    const auto assetNow = processor_.sampler.getCurrentAsset().get();
+        processor_.apvts.getRawParameterValue("attack" + sfx)->load(),
+        processor_.apvts.getRawParameterValue("decay" + sfx)->load(),
+        processor_.apvts.getRawParameterValue("sustain" + sfx)->load(),
+        processor_.apvts.getRawParameterValue("release" + sfx)->load() };
+    const auto assetNow = processor_.getSampler(currentSlot_).getCurrentAsset().get();
     if (adsrNow != lastAdsr_ || assetNow != lastAsset_) {
         lastAdsr_ = adsrNow;
         lastAsset_ = assetNow;
         sampleDropZone_.repaint();
+    }
+
+    // Slot B's spare button reads "USE A" while B has its own sample
+    sineResetBtn_.setButtonText(currentSlot_ == 1 ? "USE A" : "PURE SUB");
+    sineResetBtn_.setEnabled(currentSlot_ == 0 || !processor_.isSlotBFollowingA());
+
+    // Bar tabs show which bars call and which answer
+    const bool crOn = processor_.apvts.getRawParameterValue("callResponse")->load() > 0.5f;
+    for (int i = 0; i < 8; ++i) {
+        const juce::String txt = crOn ? (juce::String(i + 1) + ((i % 2 == 0) ? " CALL" : " ANS"))
+                                      : ("BAR " + juce::String(i + 1));
+        if (barSelectBtns_[i].getButtonText() != txt)
+            barSelectBtns_[i].setButtonText(txt);
     }
 }
 
@@ -799,6 +840,24 @@ void BleekBassBoxEditor::exportMidiWithFileChooser() {
         });
 }
 
+void BleekBassBoxEditor::selectSlot(int slot) {
+    currentSlot_ = juce::jlimit(0, 1, slot);
+    const juce::String sfx = (currentSlot_ == 1) ? "B" : "";
+
+    // Re-point the four ADSR knobs at this slot's parameters
+    attAttack_.reset(); attDecay_.reset(); attSustain_.reset(); attRelease_.reset();
+    attAttack_  = std::make_unique<SliderAtt>(processor_.apvts, "attack" + sfx, attackKnob_);
+    attDecay_   = std::make_unique<SliderAtt>(processor_.apvts, "decay" + sfx, decayKnob_);
+    attSustain_ = std::make_unique<SliderAtt>(processor_.apvts, "sustain" + sfx, sustainKnob_);
+    attRelease_ = std::make_unique<SliderAtt>(processor_.apvts, "release" + sfx, releaseKnob_);
+
+    slotABtn_.setToggleState(currentSlot_ == 0, juce::dontSendNotification);
+    slotBBtn_.setToggleState(currentSlot_ == 1, juce::dontSendNotification);
+    sampleDropZone_.setSlot(currentSlot_);
+    lastAsset_ = nullptr; // force the sample display to refresh
+    repaint();
+}
+
 void BleekBassBoxEditor::browseSampleWithFileChooser() {
     activeFileChooser_ = std::make_unique<juce::FileChooser>(
         "Load Monophonic Bass Sample",
@@ -809,7 +868,7 @@ void BleekBassBoxEditor::browseSampleWithFileChooser() {
         [this](const juce::FileChooser& fc) {
             auto file = fc.getResult();
             if (file.existsAsFile()) {
-                processor_.loadSampleFile(file);
+                processor_.loadSampleFile(file, currentSlot_);
                 sampleDropZone_.repaint();
             }
         });
@@ -855,10 +914,28 @@ void BleekBassBoxEditor::paint(juce::Graphics& g) {
     g.fillRoundedRectangle(samplerPanel, 3.0f);
     BleekLookAndFeel::drawHardwareBezel(g, samplerPanel, true);
 
-    auto enginePanel = juce::Rectangle<float>(faceplate.getX() + 10.0f, 404.0f, faceplate.getWidth() - 20.0f, 260.0f);
+    auto enginePanel = juce::Rectangle<float>(faceplate.getX() + 10.0f, 404.0f, faceplate.getWidth() - 20.0f,
+                                              full.getHeight() - 404.0f - 6.0f);
     g.setColour(Palette::kPanelRecess);
     g.fillRoundedRectangle(enginePanel, 3.0f);
     BleekLookAndFeel::drawHardwareBezel(g, enginePanel, true);
+
+    // Engine modules: raised sub-panels with silkscreen titles
+    for (const auto& m : modules_) {
+        if (m.bounds.isEmpty()) continue;
+        auto mb = m.bounds.toFloat();
+        g.setColour(juce::Colour(0xFF2A2F37));
+        g.fillRoundedRectangle(mb, 3.0f);
+        BleekLookAndFeel::drawHardwareBezel(g, mb, false);
+
+        auto titleBar = mb.removeFromTop(16.0f).reduced(6.0f, 2.0f);
+        g.setColour(Palette::kAmberLed);
+        g.fillRect(titleBar.removeFromLeft(3.0f));
+        titleBar.removeFromLeft(5.0f);
+        g.setColour(Palette::kSilkscreen);
+        g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+        g.drawText(m.title, titleBar, juce::Justification::centredLeft, true);
+    }
 
     // 4. Classic 1990s Silkscreen Branding & Model Badge
     const float headerX = faceplate.getX() + 14.0f;
@@ -882,7 +959,10 @@ void BleekBassBoxEditor::paint(juce::Graphics& g) {
     // Silkscreen section labels
     g.setColour(Palette::kSilkMuted);
     g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
-    g.drawText("AMP ENVELOPE GENERATOR [ADSR]", static_cast<int>(faceplate.getX() + 505.0f), 65, 390, 14, juce::Justification::centred);
+    g.setColour(currentSlot_ == 1 ? Palette::kAmberLed : Palette::kSilkMuted);
+    g.drawText(currentSlot_ == 1 ? "AMP ENVELOPE [ADSR]  -  SAMPLE B (ANSWER)"
+                                 : "AMP ENVELOPE [ADSR]  -  SAMPLE A (CALL)",
+               static_cast<int>(faceplate.getX() + 505.0f), 65, 390, 14, juce::Justification::centred);
 }
 
 void BleekBassBoxEditor::resized() {
@@ -904,9 +984,13 @@ void BleekBassBoxEditor::resized() {
     auto dropArea = samplerRow.removeFromLeft(465);
     sampleDropZone_.setBounds(dropArea.removeFromTop(68));
     auto sampleBtns = dropArea.withTrimmedTop(4);
-    loadSampleBtn_.setBounds(sampleBtns.removeFromLeft(118));
+    slotABtn_.setBounds(sampleBtns.removeFromLeft(34));
+    sampleBtns.removeFromLeft(2);
+    slotBBtn_.setBounds(sampleBtns.removeFromLeft(34));
+    sampleBtns.removeFromLeft(8);
+    loadSampleBtn_.setBounds(sampleBtns.removeFromLeft(108));
     sampleBtns.removeFromLeft(6);
-    sineResetBtn_.setBounds(sampleBtns.removeFromLeft(92));
+    sineResetBtn_.setBounds(sampleBtns.removeFromLeft(88));
     sampleBtns.removeFromLeft(6);
     rootNoteBox_.setBounds(sampleBtns);
 
@@ -943,46 +1027,51 @@ void BleekBassBoxEditor::resized() {
     drumContextBox_.setBounds(selectorRow.removeFromLeft(175).reduced(2));
     phraseLengthBox_.setBounds(selectorRow.removeFromLeft(110).reduced(2));
 
-    area.removeFromTop(8);
-
-    auto lockRow = area.removeFromTop(28);
-    const int lockW = lockRow.getWidth() / 4;
-    lockRhythmBtn_.setBounds(lockRow.removeFromLeft(lockW).reduced(2));
-    lockPitchBtn_.setBounds(lockRow.removeFromLeft(lockW).reduced(2));
-    lockPhraseBtn_.setBounds(lockRow.removeFromLeft(lockW).reduced(2));
-    lockGrooveBtn_.setBounds(lockRow.removeFromLeft(lockW).reduced(2));
-
-    area.removeFromTop(8);
-
-    // Call & Response row
-    auto crRow = area.removeFromTop(30);
-    callResponseBtn_.setBounds(crRow.removeFromLeft(lockW).reduced(2));
-    responseDirBox_.setBounds(crRow.removeFromLeft(170).reduced(2, 3));
-    crRow.removeFromLeft(16);
-    responseAmountLbl_.setBounds(crRow.removeFromLeft(135));
-    responseAmountSlider_.setBounds(crRow.removeFromLeft(300));
-
     area.removeFromTop(10);
 
-    // 5. 2-Column Compositional Sliders
-    auto leftCol = area.removeFromLeft(area.getWidth() / 2).reduced(6, 0);
-    auto rightCol = area.reduced(6, 0);
-
-    auto placeSlider = [](juce::Rectangle<int>& col, juce::Slider& s, juce::Label& l) {
-        auto row = col.removeFromTop(33);
-        l.setBounds(row.removeFromLeft(135));
-        s.setBounds(row);
+    // 5. Engine modules: each group of knobs sits with the lock that freezes it
+    auto modRow = area.removeFromTop(150);
+    const int cellW = 76, pad = 6, gap = 8;
+    auto takeModule = [&](int idx, int width, const juce::String& title) {
+        auto r = modRow.removeFromLeft(width);
+        modRow.removeFromLeft(gap);
+        modules_[static_cast<size_t>(idx)] = { r, title };
+        return r.reduced(pad, 0).withTrimmedTop(18).withTrimmedBottom(pad);
+    };
+    auto placeKnobs = [&](juce::Rectangle<int> inner, std::initializer_list<std::pair<juce::Slider*, juce::Label*>> knobs,
+                          juce::Button* lock) {
+        if (lock != nullptr)
+            lock->setBounds(inner.removeFromBottom(26).reduced(1, 0));
+        inner.removeFromBottom(4);
+        for (auto [s, l] : knobs) {
+            auto cell = inner.removeFromLeft(cellW);
+            l->setBounds(cell.removeFromTop(14));
+            s->setBounds(cell);
+        }
     };
 
-    placeSlider(leftCol, densitySlider_, densityLbl_);
-    placeSlider(leftCol, syncopationSlider_, syncopationLbl_);
-    placeSlider(leftCol, variationSlider_, variationLbl_);
-    placeSlider(leftCol, lengthSlider_, lengthLbl_);
+    placeKnobs(takeModule(0, 3 * cellW + 2 * pad, "RHYTHM"),
+               { { &densitySlider_, &densityLbl_ }, { &syncopationSlider_, &syncopationLbl_ }, { &lengthSlider_, &lengthLbl_ } },
+               &lockRhythmBtn_);
+    placeKnobs(takeModule(1, 2 * cellW + 2 * pad, "PITCH"),
+               { { &chromaticSlider_, &chromaticLbl_ }, { &octaveSlider_, &octaveLbl_ } },
+               &lockPitchBtn_);
+    placeKnobs(takeModule(2, 104, "PHRASE"),
+               { { &variationSlider_, &variationLbl_ } },
+               &lockPhraseBtn_);
+    placeKnobs(takeModule(3, 2 * cellW + 2 * pad, "GROOVE"),
+               { { &swingSlider_, &swingLbl_ }, { &drumAwareSlider_, &drumAwareLbl_ } },
+               &lockGrooveBtn_);
 
-    placeSlider(rightCol, chromaticSlider_, chromaticLbl_);
-    placeSlider(rightCol, octaveSlider_, octaveLbl_);
-    placeSlider(rightCol, drumAwareSlider_, drumAwareLbl_);
-    placeSlider(rightCol, swingSlider_, swingLbl_);
+    // Call & Response module: amount knob + direction + on/off
+    auto cr = takeModule(4, modRow.getWidth(), "CALL & RESPONSE");
+    callResponseBtn_.setBounds(cr.removeFromBottom(26).reduced(1, 0));
+    cr.removeFromBottom(4);
+    auto crKnob = cr.removeFromLeft(cellW);
+    responseAmountLbl_.setBounds(crKnob.removeFromTop(14));
+    responseAmountSlider_.setBounds(crKnob);
+    cr.removeFromLeft(6);
+    responseDirBox_.setBounds(cr.withSizeKeepingCentre(cr.getWidth(), 26));
 }
 
 } // namespace bleek
